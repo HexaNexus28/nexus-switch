@@ -3,6 +3,26 @@
   "version": "0.1.0",
   "description": "Terminal launcher/router for Claude Code across OpenRouter, Groq, Ollama and LiteLLM providers.",
   "type": "commonjs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HexaNexus28/nexus-switch.git"
+  },
+  "bugs": {
+    "url": "https://github.com/HexaNexus28/nexus-switch/issues"
+  },
+  "homepage": "https://github.com/HexaNexus28/nexus-switch#readme",
+  "files": [
+    "bin/",
+    "src/",
+    "providers/",
+    "litellm/",
+    "docs/",
+    "install.ps1",
+    "update.ps1",
+    "uninstall.ps1",
+    "README.md",
+    "LICENSE"
+  ],
   "bin": {
     "nexus-switch": "bin/nexus-switch.js"
   },

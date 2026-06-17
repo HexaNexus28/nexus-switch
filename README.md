@@ -14,15 +14,19 @@ Claude Code sessions and provider quotas can block your flow. Nexus Switch lets 
 - Gemini, Cerebras, Mistral, NVIDIA NIM via LiteLLM templates
 - Anthropic native if you have an API key/subscription
 
-## Install from a cloned repo
+## Install from GitHub
 
 ```powershell
+git clone https://github.com/HexaNexus28/nexus-switch.git
+Set-Location .\nexus-switch
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 . $PROFILE
 nexus doctor
 ```
 
-## Future npx install
+## npm/npx install
+
+After npm publication:
 
 ```bash
 npx @hexanexus/nexus-switch install
