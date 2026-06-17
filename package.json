@@ -1,0 +1,18 @@
+{
+  "name": "@hexanexus/nexus-switch",
+  "version": "0.1.0",
+  "description": "Terminal launcher/router for Claude Code across OpenRouter, Groq, Ollama and LiteLLM providers.",
+  "type": "commonjs",
+  "bin": {
+    "nexus-switch": "bin/nexus-switch.js"
+  },
+  "scripts": {
+    "install:local": "powershell -ExecutionPolicy Bypass -File install.ps1",
+    "test:syntax": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$e=$null;[void][System.Management.Automation.Language.Parser]::ParseFile('src/NexusSwitch.ps1',[ref]$null,[ref]$e);if($e){$e;exit 1}else{'OK'}\""
+  },
+  "keywords": ["claude-code", "router", "litellm", "openrouter", "groq", "ollama"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}

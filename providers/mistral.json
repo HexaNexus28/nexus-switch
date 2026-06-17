@@ -1,0 +1,16 @@
+{
+  "type": "litellm",
+  "name": "Mistral AI (via LiteLLM)",
+  "default": "mistral/codestral-latest",
+  "setup": "claude-set-key mistral [key]",
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://localhost:4000",
+    "ANTHROPIC_AUTH_TOKEN": "groq-proxy-key",
+    "ANTHROPIC_API_KEY": ""
+  },
+  "models": [
+    { "id": "mistral/codestral-latest", "name": "Codestral", "free": true, "note": "coding" },
+    { "id": "mistral/mistral-small-latest", "name": "Mistral Small", "free": true, "note": "rapide/general" },
+    { "id": "mistral/mistral-large-latest", "name": "Mistral Large", "free": true, "note": "selon tier/quotas" }
+  ]
+}

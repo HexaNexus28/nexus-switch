@@ -1,0 +1,26 @@
+{
+  "type": "openrouter",
+  "name": "OpenRouter",
+  "default": "openrouter/owl-alpha",
+  "credits_api": "https://openrouter.ai/api/v1/credits",
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
+    "ANTHROPIC_AUTH_TOKEN": "${OPENROUTER_API_KEY}",
+    "ANTHROPIC_API_KEY": ""
+  },
+  "models": [
+    { "id": "openrouter/owl-alpha", "name": "Owl Alpha", "free": true, "note": "Claude Code compatible, agentic, 1M ctx" },
+    { "id": "openrouter/free", "name": "Auto Free", "free": true, "note": "auto-select gratuit" },
+    { "id": "nvidia/nemotron-3-ultra-550b-a55b:free", "name": "Nemotron 3 Ultra 550B", "free": true, "note": "agentic 1M ctx" },
+    { "id": "nvidia/nemotron-3-super-120b-a12b:free", "name": "Nemotron 3 Super 120B", "free": true, "note": "agentic 1M ctx" },
+    { "id": "nex-agi/nex-n2-pro:free", "name": "Nex N2 Pro", "free": true, "note": "coding, tools, reasoning" },
+    { "id": "poolside/laguna-m.1:free", "name": "Laguna M.1", "free": true, "note": "coding agent, 128K ctx" },
+    { "id": "poolside/laguna-xs.2:free", "name": "Laguna XS.2", "free": true, "note": "coding agent, 256K ctx" },
+    { "id": "openai/gpt-oss-120b:free", "name": "GPT OSS 120B", "free": true, "note": "reasoning, tools" },
+    { "id": "openai/gpt-oss-20b:free", "name": "GPT OSS 20B", "free": true, "note": "rapide, tools" },
+    { "id": "google/gemma-4-31b-it:free", "name": "Gemma 4 31B", "free": true, "note": "coding, reasoning" },
+    { "id": "deepseek/deepseek-r1:free", "name": "DeepSeek R1", "free": true, "note": "reasoning" },
+    { "id": "anthropic/claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "free": false, "note": "payant" },
+    { "id": "anthropic/claude-opus-4-8", "name": "Claude Opus 4.8", "free": false, "note": "payant" }
+  ]
+}

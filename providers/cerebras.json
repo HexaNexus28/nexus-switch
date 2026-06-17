@@ -1,0 +1,16 @@
+{
+  "type": "litellm",
+  "name": "Cerebras (via LiteLLM)",
+  "default": "cerebras/llama-3.3-70b",
+  "setup": "claude-set-key cerebras [key]",
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://localhost:4000",
+    "ANTHROPIC_AUTH_TOKEN": "groq-proxy-key",
+    "ANTHROPIC_API_KEY": ""
+  },
+  "models": [
+    { "id": "cerebras/llama-3.3-70b", "name": "Llama 3.3 70B", "free": true, "note": "tres rapide" },
+    { "id": "cerebras/qwen-3-32b", "name": "Qwen3 32B", "free": true, "note": "coding/reasoning" },
+    { "id": "cerebras/gpt-oss-120b", "name": "GPT OSS 120B", "free": true, "note": "reasoning" }
+  ]
+}

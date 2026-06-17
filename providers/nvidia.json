@@ -1,0 +1,16 @@
+{
+  "type": "litellm",
+  "name": "NVIDIA NIM (via LiteLLM)",
+  "default": "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b",
+  "setup": "claude-set-key nvidia [key]",
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://localhost:4000",
+    "ANTHROPIC_AUTH_TOKEN": "groq-proxy-key",
+    "ANTHROPIC_API_KEY": ""
+  },
+  "models": [
+    { "id": "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b", "name": "Nemotron 3 Ultra", "free": true, "note": "agentic" },
+    { "id": "nvidia_nim/nvidia/nemotron-3-super-120b-a12b", "name": "Nemotron 3 Super", "free": true, "note": "agentic" },
+    { "id": "nvidia_nim/deepseek-ai/deepseek-v3.2", "name": "DeepSeek V3.2", "free": true, "note": "reasoning/coding" }
+  ]
+}

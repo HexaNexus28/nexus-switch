@@ -1,0 +1,16 @@
+{
+  "type": "litellm",
+  "name": "Google Gemini (via LiteLLM)",
+  "default": "gemini/gemini-2.5-flash",
+  "setup": "claude-set-key gemini [key]",
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://localhost:4000",
+    "ANTHROPIC_AUTH_TOKEN": "groq-proxy-key",
+    "ANTHROPIC_API_KEY": ""
+  },
+  "models": [
+    { "id": "gemini/gemini-2.5-flash", "name": "Gemini 2.5 Flash", "free": true, "note": "rapide, long contexte" },
+    { "id": "gemini/gemini-2.5-flash-lite", "name": "Gemini 2.5 Flash Lite", "free": true, "note": "cheap/rapide" },
+    { "id": "gemini/gemini-2.5-pro", "name": "Gemini 2.5 Pro", "free": true, "note": "quotas free variables" }
+  ]
+}

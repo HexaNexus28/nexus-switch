@@ -1,0 +1,8 @@
+node_modules/
+.env
+.env.*
+*.log
+secrets.json
+*.local.json
+.nexus-switch/
+.DS_Store

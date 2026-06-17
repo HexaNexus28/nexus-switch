@@ -1,0 +1,21 @@
+{
+  "type": "litellm",
+  "name": "Groq (via LiteLLM proxy)",
+  "default": "groq/llama-3.3-70b-versatile",
+  "setup": "pip install litellm[proxy] — proxy auto via nexus groq",
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://localhost:4000",
+    "ANTHROPIC_AUTH_TOKEN": "groq-proxy-key",
+    "ANTHROPIC_API_KEY": ""
+  },
+  "models": [
+    { "id": "groq/llama-3.3-70b-versatile", "name": "Llama 3.3 70B", "free": true, "note": "production, polyvalent" },
+    { "id": "groq/llama-3.1-8b-instant", "name": "Llama 3.1 8B Instant", "free": true, "note": "production, ultra rapide" },
+    { "id": "groq/openai/gpt-oss-120b", "name": "GPT OSS 120B", "free": true, "note": "production, reasoning" },
+    { "id": "groq/openai/gpt-oss-20b", "name": "GPT OSS 20B", "free": true, "note": "production, rapide" },
+    { "id": "groq/qwen/qwen3-32b", "name": "Qwen3 32B", "free": true, "note": "preview, coding/reasoning" },
+    { "id": "groq/meta-llama/llama-4-scout-17b-16e-instruct", "name": "Llama 4 Scout", "free": true, "note": "preview" },
+    { "id": "groq/compound-beta", "name": "Compound", "free": true, "note": "system agentic" },
+    { "id": "groq/compound-beta-mini", "name": "Compound Mini", "free": true, "note": "system agentic rapide" }
+  ]
+}
