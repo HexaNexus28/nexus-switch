@@ -51,6 +51,12 @@ $EMP = [string][char]0x2591   # (bloc vide)
 $ARR = [string][char]0x25B6   # (triangle droit)
 $DOT = [string][char]0x2022   # (puce)
 $SPC = [string][char]0x00B7   # (point median)
+$RTL = [string][char]0x256D   # (coin arrondi haut-gauche)
+$RTR = [string][char]0x256E   # (coin arrondi haut-droit)
+$RBL = [string][char]0x2570   # (coin arrondi bas-gauche)
+$RBR = [string][char]0x256F   # (coin arrondi bas-droit)
+$NODE= [string][char]0x25CF   # (noeud plein)
+$CRS = [string][char]0x253C   # (croisement de lignes)
 
 # =============================================================================
 #  Helpers provider
@@ -214,17 +220,37 @@ function _ui_line([int]$w = 68) { return ($DH * $w) }
 
 function _ui_clear { [Console]::Clear() }
 
+function _ui_w {
+    # Largeur de contenu responsive, bornee pour rester lisible
+    $cw = try { [Console]::WindowWidth } catch { 80 }
+    if ($cw -lt 1) { $cw = 80 }
+    return [math]::Max(46, [math]::Min(78, $cw - 4))
+}
+
 function _ui_header {
-    $w   = 70
-    $pad = $w - 2
-    $bar = $DH * $pad
-    $inner = "  ${B}${CY}N E X U S  S W I T C H${R}   ${DG}//  HexaNexus28  //  AI Model Router${R}"
-    $innerLen = 52
-    $right = $pad - $innerLen
+    # Logo : deux rectangles entrelaces (coins arrondis) qui se croisent sur
+    # NEXUS / SWITCH, avec des noeuds en diagonale. Centre, fallback si etroit.
+    $cw = try { [Console]::WindowWidth } catch { 80 }
+    if ($cw -lt 1) { $cw = 80 }
+
+    if ($cw -lt 46) {
+        Write-Host ""
+        Write-Host "  $B$CY N E X U S  S W I T C H $R  $DG$SPC HexaNexus$R"
+        Write-Host ""
+        return
+    }
+
+    $ind = " " * [math]::Max(2, [int](($cw - 34) / 2))
+    $h20 = $H * 20; $h16 = $H * 16; $h3 = $H * 3
+
     Write-Host ""
-    Write-Host "  $CY$DTL$bar$DTR$R"
-    Write-Host "  $CY$DV$R$inner$(" " * $right)$CY$DV$R"
-    Write-Host "  $CY$DBL$bar$DBR$R"
+    Write-Host "$ind$(' ' * 10)$CY$RTL$h20$RTR$R"
+    Write-Host "$ind$(' ' * 10)$CY$V$R$B$WH   N E X U S        $R$CY$LT$H$R$GR$NODE$R"
+    Write-Host "$ind$(' ' * 6)$CY$RTL$h3$R$MG$CRS$R$CY$h16$RTR   $LT$H$R$GR$NODE$R"
+    Write-Host "$ind$(' ' * 4)$GR$NODE$R$CY$H$RT   $RBL$h16$R$MG$CRS$R$CY$h3$RBR$R"
+    Write-Host "$ind$(' ' * 4)$GR$NODE$R$CY$H$RT$R$B$WH    S W I T C H     $R$CY$V$R"
+    Write-Host "$ind$(' ' * 6)$CY$RBL$h20$RBR$R"
+    Write-Host "$ind$(' ' * 6)$CY${B}HexaNexus$R$DG  $SPC  AI Model Router$R"
     Write-Host ""
 }
 
@@ -282,6 +308,7 @@ function _ui_menu {
     # Items : array de hashtable avec keys : label, sub, tag, extra, free
     $sel = 0
     $n   = $Items.Count
+    $labW = [math]::Max(24, (_ui_w) - 22)   # largeur label responsive
     [Console]::CursorVisible = $false
     [Console]::Clear()   # un seul clear a l'entree ; ensuite on repeint en place (zero flicker)
 
@@ -310,8 +337,8 @@ function _ui_menu {
 
             $num    = ($i + 1).ToString().PadLeft(2)
             $rawLab = [string]$it.label
-            if ($rawLab.Length -gt 50) { $rawLab = $rawLab.Substring(0, 47) + "..." }
-            $lab  = $rawLab.PadRight(50)
+            if ($rawLab.Length -gt $labW) { $rawLab = $rawLab.Substring(0, $labW - 3) + "..." }
+            $lab  = $rawLab.PadRight($labW)
             $tag  = if ($it.ContainsKey("tag"))   { $it.tag }   else { "" }
             $xtra = if ($it.ContainsKey("extra")) { $it.extra } else { "" }
 
