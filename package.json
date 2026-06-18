@@ -26,6 +26,10 @@
   "bin": {
     "nexus-switch": "bin/nexus-switch.js"
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "install:local": "powershell -ExecutionPolicy Bypass -File install.ps1",
     "test:syntax": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$e=$null;[void][System.Management.Automation.Language.Parser]::ParseFile('src/NexusSwitch.ps1',[ref]$null,[ref]$e);if($e){$e;exit 1}else{'OK'}\""
