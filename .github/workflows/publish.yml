@@ -1,14 +1,16 @@
 name: Publish to npm
 
-# Publie sur npm via Trusted Publishing (OIDC) : aucun token ni OTP requis.
-# Declenche a la publication d'une Release GitHub, ou manuellement.
+# Modele "push -> publish auto" : a chaque push sur main qui modifie package.json,
+# le workflow compare la version locale a celle publiee sur npm. Si elle est
+# nouvelle -> publication (OIDC, sans token) + tag + release auto. Sinon, no-op.
 on:
-  release:
-    types: [published]
+  push:
+    branches: [main]
+    paths: ['package.json']
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # write : pour pousser le tag et creer la release
   id-token: write   # requis pour l'authentification OIDC vers npm
 
 jobs:
@@ -25,4 +27,34 @@ jobs:
       # Trusted Publishing exige npm >= 11.5.1
       - run: npm install -g npm@latest
 
-      - run: npm publish
+      - name: Detect version change
+        id: check
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          LOCAL=$(node -p "require('./package.json').version")
+          REMOTE=$(npm view "$NAME" version 2>/dev/null || echo "none")
+          echo "version=$LOCAL" >> "$GITHUB_OUTPUT"
+          if [ "$LOCAL" = "$REMOTE" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Version $LOCAL deja publiee -> rien a faire."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Nouvelle version $LOCAL (npm: $REMOTE) -> publication."
+          fi
+
+      - name: Publish to npm
+        if: steps.check.outputs.changed == 'true'
+        run: npm publish
+
+      - name: Tag and GitHub Release
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.check.outputs.version }}"
+          git push origin "v${{ steps.check.outputs.version }}"
+          gh release create "v${{ steps.check.outputs.version }}" \
+            --title "v${{ steps.check.outputs.version }}" \
+            --generate-notes
