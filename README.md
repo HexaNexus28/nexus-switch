@@ -46,6 +46,7 @@ nexus doctor                  # diagnostics
 nexus credits                 # OpenRouter/Groq/Ollama status
 nexus proxy-start             # start LiteLLM proxy
 nexus proxy-stop              # stop LiteLLM proxy
+nexus update                  # update to the latest npm release
 claude-set-key groq gsk_...   # persist provider key
 ```
 

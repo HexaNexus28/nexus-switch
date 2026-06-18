@@ -502,6 +502,7 @@ function _screen_help {
         @{ cmd = "nexus doctor";                   desc = "Diagnostic config, cles, proxy et conflits" }
         @{ cmd = "nexus proxy-start";              desc = "Demarre le gateway LiteLLM sans lancer Claude" }
         @{ cmd = "nexus proxy-stop";               desc = "Arrete le gateway LiteLLM" }
+        @{ cmd = "nexus update";                   desc = "Met a jour Nexus Switch (derniere version npm)" }
         @{ cmd = "nexus help";                     desc = "Cette page" }
         @{ cmd = "";                               desc = "" }
         @{ cmd = "claude-set-key openrouter [k]";  desc = "Enregistre ta cle OpenRouter dans providers/openrouter.json" }
@@ -657,6 +658,8 @@ function nexus {
         "diag"    { _screen_doctor;    return }
         "proxy-start" { claude-proxy-start; return }
         "proxy-stop"  { claude-proxy-stop;  return }
+        "update"  { _nexus_update;     return }
+        "upgrade" { _nexus_update;     return }
         "help"    { _screen_help;      return }
         "--help"  { _screen_help;      return }
         "-h"      { _screen_help;      return }
@@ -671,6 +674,7 @@ function nexus {
                     @{ label = "Diagnostic";                    tag = ""; extra = "cles, proxy, conflits"; free = $true; action = "doctor" }
                     @{ label = "Demarrer gateway LiteLLM";      tag = if(_proxy_running){"${GR}actif$R"}else{"${YL}stop$R"}; extra = "localhost:4000"; free = $true; action = "proxyStart" }
                     @{ label = "Arreter gateway LiteLLM";       tag = ""; extra = "nettoyage proxy"; free = $true; action = "proxyStop" }
+                    @{ label = "Mettre a jour Nexus Switch";    tag = ""; extra = "derniere version npm"; free = $true; action = "update" }
                     @{ label = "Aide";                          tag = ""; extra = "commandes + exemples"; free = $true; action = "help"   }
                     @{ label = "Quitter";                       tag = ""; extra = ""; free = $true; action = "quit"    }
                 )
@@ -683,6 +687,7 @@ function nexus {
                     "doctor"     { _screen_doctor     }
                     "proxyStart" { claude-proxy-start }
                     "proxyStop"  { claude-proxy-stop  }
+                    "update"     { _nexus_update      }
                     "help"       { _screen_help       }
                 }
             }
@@ -766,6 +771,40 @@ function claude-proxy-stop {
     Get-Process -Name "litellm" -ErrorAction SilentlyContinue | Stop-Process -Force
     Get-CimInstance Win32_Process -Filter "name = 'python.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*$LiteLLMConfig*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
     Write-Host "  ${YL}LiteLLM proxy arrete.$R"
+}
+
+function _nexus_update {
+    # Recupere la derniere version publiee sur npm et reinstalle dans ~/.nexus-switch.
+    _ui_clear
+    _ui_header
+    _ui_section "MISE A JOUR"
+
+    if (-not (Get-Command npx -ErrorAction SilentlyContinue)) {
+        Write-Host "  ${RD}npx introuvable - installe Node.js : https://nodejs.org$R"
+        Write-Host ""
+        Write-Host "  $DG$H$H  [Entree] pour revenir$R"
+        [Console]::ReadKey($true) | Out-Null
+        return
+    }
+
+    $latest = (npm view "@hexanexus/nexus-switch" version 2>$null)
+    if ($latest) { Write-Host "  ${CY}Derniere version npm : $B$latest$R" }
+    Write-Host "  ${CY}Telechargement et reinstallation...$R"
+    Write-Host ""
+
+    & npx -y "@hexanexus/nexus-switch@latest" update
+    $code = $LASTEXITCODE
+
+    Write-Host ""
+    if ($code -ne 0) {
+        Write-Host "  ${RD}Echec de la mise a jour (code $code).$R"
+    } else {
+        Write-Host "  ${GR}Nexus Switch mis a jour dans ~/.nexus-switch.$R"
+        Write-Host "  ${YL}Recharge ce terminal : $B. `$PROFILE$R  ${DG}(ou ouvre un nouveau terminal)$R"
+    }
+    Write-Host ""
+    Write-Host "  $DG$H$H  [Entree] pour revenir$R"
+    [Console]::ReadKey($true) | Out-Null
 }
 
 # Alias court
