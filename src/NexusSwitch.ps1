@@ -105,6 +105,20 @@ function _litellm_has_any_key {
     return $false
 }
 
+function _ensure_proxy_key {
+    # Master key du gateway LiteLLM. Generee une seule fois (User scope), partagee
+    # par tous les terminaux. La config YAML la lit via os.environ/NEXUS_PROXY_KEY et
+    # les providers via ${NEXUS_PROXY_KEY} -> jamais de cle en clair dans le repo.
+    $k = _env_get "NEXUS_PROXY_KEY"
+    if (-not $k) {
+        $k = "sk-nexus-" + [guid]::NewGuid().ToString("N")
+        [Environment]::SetEnvironmentVariable("NEXUS_PROXY_KEY", $k, "User")
+    }
+    # Process scope : Start-Process herite de l'env -> litellm enfant voit la cle.
+    [Environment]::SetEnvironmentVariable("NEXUS_PROXY_KEY", $k, "Process")
+    return $k
+}
+
 function _p_apply($prov, [string]$model = "") {
     # Option A : env vars Process-level UNIQUEMENT -> isolation totale par terminal.
     # Chaque terminal peut donc faire tourner un provider different en parallele.
@@ -185,7 +199,6 @@ function _provider_badge([string]$pName, $p) {
         return "${YL}gateway auto$R"
     }
     if ($pName -eq "openrouter") {
-        if (Test-Path "$ClaudeDir\.credentials.json") { return "${YL}/logout ?$R" }
         return "${GR}$free gratuits$R"
     }
     if ($pName -eq "ollama") { return "${GR}cloud + local$R" }
@@ -270,9 +283,10 @@ function _ui_menu {
     $sel = 0
     $n   = $Items.Count
     [Console]::CursorVisible = $false
+    [Console]::Clear()   # un seul clear a l'entree ; ensuite on repeint en place (zero flicker)
 
     while ($true) {
-        _ui_clear
+        try { [Console]::SetCursorPosition(0, 0) } catch { [Console]::Clear() }
         _ui_header
         _ui_section $Title
         if ($Status) {
@@ -308,6 +322,7 @@ function _ui_menu {
         $hintText = if ($Hint) { $Hint } else { "[haut/bas] naviguer  [PgUp/PgDn] sauter  [Home/End] extremes  [Entree] choisir  [1-9] direct  [Q] retour" }
         Write-Host "  $DG$H$H  $hintText  $H$H$R"
         Write-Host ""
+        [Console]::Write("$e[0J")   # efface les lignes residuelles si la frame precedente etait plus longue
 
         $key = [Console]::ReadKey($true)
 
@@ -542,7 +557,7 @@ function _screen_doctor {
 
     Write-Host "  $CY$($(_ok_bad (-not $localCfg)))$R  settings.local.json absent       $DG$(if($localCfg){'pollution globale possible'}else{'isolation terminal OK'})$R"
     Write-Host "  $CY$($(_ok_bad ([bool]$openrouterKey)))$R  OpenRouter key configuree"
-    Write-Host "  $CY$($(_ok_bad (-not $creds)))$R  Login Anthropic cache            $DG$(if($creds){'faire /logout pour OpenRouter'}else{'aucun conflit detecte'})$R"
+    Write-Host "  $CY$($(_ok_bad $true))$R  Login Anthropic natif            $DG$(if($creds){'present (coexiste avec les env vars, pas de /logout)'}else{'absent'})$R"
     Write-Host "  $CY$($(_ok_bad ([bool]$groqKey)))$R  GROQ_API_KEY user"
     Write-Host "  $CY$($(_ok_bad ([bool]$litellm)))$R  litellm.exe                    $DG$litellm$R"
     Write-Host "  $CY$($(_ok_bad $proxyOk))$R  Proxy localhost:4000           $DG$(if($proxyOk){'actif'}else{'inactif'})$R"
@@ -589,9 +604,6 @@ function _launch([string]$pName, [string]$model, [object[]]$rest = @()) {
                     return
                 }
             }
-        }
-        if ($pName -eq "openrouter" -and (Test-Path "$ClaudeDir\.credentials.json")) {
-            Write-Host "  ${YL}Note OpenRouter : si Claude ne repond pas, lance /logout une fois pour enlever le login Anthropic cache.$R"
         }
         _p_apply $prov $model
         claude @rest
@@ -704,11 +716,14 @@ function claude-proxy-start {
         Write-Host "  ${RD}litellm introuvable - pip install litellm[proxy]  (ou ajoute le dossier Scripts au PATH)$R"
         return
     }
+    _ensure_proxy_key | Out-Null
     Remove-Item $ProxyOutLog,$ProxyErrLog -Force -ErrorAction SilentlyContinue
     $env:PYTHONUTF8 = "1"
     $env:PYTHONIOENCODING = "utf-8"
-    Write-Host "  ${CY}Demarrage LiteLLM proxy sur :4000...$R  ${DG}($exe)$R"
-    Start-Process -FilePath $exe -ArgumentList "--config `"$cfg`" --port 4000" -WindowStyle Hidden -RedirectStandardOutput $ProxyOutLog -RedirectStandardError $ProxyErrLog
+    Write-Host "  ${CY}Demarrage LiteLLM proxy sur 127.0.0.1:4000...$R  ${DG}($exe)$R"
+    # --host 127.0.0.1 : sinon LiteLLM bind 0.0.0.0 -> proxy expose sur tout le LAN
+    # (wifi partage) avec une master key connue. Loopback only.
+    Start-Process -FilePath $exe -ArgumentList "--config `"$cfg`" --host 127.0.0.1 --port 4000" -WindowStyle Hidden -RedirectStandardOutput $ProxyOutLog -RedirectStandardError $ProxyErrLog
     # Attendre que le port reponde reellement (max 20s) au lieu d'un sleep fixe
     for ($i = 0; $i -lt 20; $i++) {
         Start-Sleep -Seconds 1
