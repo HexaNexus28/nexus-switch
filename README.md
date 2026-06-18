@@ -26,11 +26,13 @@ nexus doctor
 
 ## npm/npx install
 
-After npm publication:
-
 ```bash
 npx @hexanexus/nexus-switch install
+. $PROFILE
+nexus doctor
 ```
+
+Other commands: `npx @hexanexus/nexus-switch update` and `npx @hexanexus/nexus-switch uninstall`.
 
 ## Commands
 
@@ -68,6 +70,12 @@ Claude Code speaks Anthropic-style configuration (`ANTHROPIC_BASE_URL`, `ANTHROP
 
 OpenRouter does not need LiteLLM in this setup because it exposes an Anthropic-compatible endpoint directly at `https://openrouter.ai/api`.
 
+## Multi-terminal & login
+
+Nexus Switch sets `ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN` as **process-level** env vars, so each terminal carries its own provider context independently.
+
+Do **not** run `/logout` to switch to OpenRouter or a LiteLLM provider. Claude Code's OAuth login lives in a single global file (`~/.claude/.credentials.json`); logging out in one terminal logs you out everywhere. When the env vars point to a gateway, Claude Code routes there and ignores the OAuth login — the native login only applies to `api.anthropic.com`. You can stay logged in natively in one terminal and use OpenRouter in another at the same time.
+
 ## Repo layout
 
 ```text
@@ -82,11 +90,11 @@ bin/nexus-switch.js          # npm/npx wrapper
 
 ## Roadmap
 
-- `v0.1` Windows PowerShell installer
-- `v0.2` npm package and richer provider templates
-- `v0.3` automatic failover chains
-- `v0.4` usage stats and local dashboard
-- `v1.0` cross-platform Nexus Router daemon
+- [x] `v0.1` — Windows PowerShell installer + interactive keyboard UI
+- [x] `v0.2` — npm/npx wrapper + provider templates (OpenRouter, Groq, Gemini, Cerebras, Mistral, NVIDIA NIM, Ollama, Anthropic)
+- [ ] `v0.3` — automatic failover chains
+- [ ] `v0.4` — usage stats and local dashboard
+- [ ] `v1.0` — cross-platform Nexus Router daemon
 
 ## Branding/legal note
 
