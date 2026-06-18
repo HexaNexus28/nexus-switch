@@ -240,7 +240,9 @@ function _ui_header {
         return
     }
 
-    $ind = " " * [math]::Max(2, [int](($cw - 34) / 2))
+    # L'art s'etend des colonnes 4 a 33 (largeur visible 30) : on centre cette
+    # plage, pas la colonne 0, sinon le logo penche a droite.
+    $ind = " " * [math]::Max(2, [int](($cw - 38) / 2))
     $h20 = $H * 20; $h16 = $H * 16; $h3 = $H * 3
 
     Write-Host ""
