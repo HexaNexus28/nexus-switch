@@ -6,3 +6,6 @@ secrets.json
 *.local.json
 .nexus-switch/
 .DS_Store
+
+# Notes personnelles locales (non versionnees)
+docs/NOTES-RELEASE-CI.md
