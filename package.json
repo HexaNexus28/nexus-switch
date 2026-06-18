@@ -1,6 +1,6 @@
 {
   "name": "@hexanexus/nexus-switch",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Terminal launcher/router for Claude Code across OpenRouter, Groq, Ollama and LiteLLM providers.",
   "type": "commonjs",
   "repository": {
