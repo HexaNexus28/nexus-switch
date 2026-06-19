@@ -1,6 +1,23 @@
 import type { Provider } from '../types/provider.types.js';
 import { readPersistedKey } from '../platform/persist.js';
 
+const ANTHROPIC_OVERRIDES = [
+  'ANTHROPIC_BASE_URL',
+  'ANTHROPIC_AUTH_TOKEN',
+  'ANTHROPIC_API_KEY',
+  'ANTHROPIC_MODEL',
+  'MAX_THINKING_TOKENS',
+  'CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING',
+] as const;
+
+/**
+ * Clear provider overrides before launching Ollama or native Anthropic, so a stale
+ * gateway base URL from a previous provider doesn't hijack the launched claude.
+ */
+export function resetProviderEnv(): void {
+  for (const key of ANTHROPIC_OVERRIDES) delete process.env[key];
+}
+
 /** Resolve ${VAR} placeholders against the current environment. */
 function resolveTemplate(value: string): string {
   return value.replace(/\$\{(\w+)\}/g, (_match, name: string) => process.env[name] ?? '');

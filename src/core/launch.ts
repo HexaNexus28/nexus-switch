@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import type { Provider } from '../types/provider.types.js';
-import { applyProviderEnv } from './env.js';
+import { applyProviderEnv, resetProviderEnv } from './env.js';
 
 /** Is the `claude` CLI on PATH? Required for every provider, Ollama included. */
 export function claudeExists(): boolean {
@@ -11,6 +11,7 @@ export function claudeExists(): boolean {
 /** Launch claude for the selected provider/model, inheriting the terminal. */
 export function launch(provider: Provider, model: string, rest: string[]): void {
   if (provider.type === 'ollama') {
+    resetProviderEnv();
     const args = ['launch', 'claude', '--model', model, ...(rest.length ? ['--', ...rest] : [])];
     const result = spawnSync('ollama', args, { stdio: 'inherit' });
     if (result.error) {
