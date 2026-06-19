@@ -1,12 +1,34 @@
 # Nexus Switch
 
-Terminal launcher/router for Claude Code across OpenRouter, Groq, Ollama and LiteLLM-backed providers.
+Cross-platform terminal launcher/router for Claude Code across OpenRouter, Groq,
+Ollama and LiteLLM-backed providers. One codebase (Node/TypeScript), runs
+wherever `claude` runs — Windows, macOS, Linux.
 
-Nexus Switch does **not** replace or redistribute Claude Code. It configures the current terminal environment, optionally starts a local LiteLLM proxy, then launches the installed `claude` CLI with the selected provider/model.
+Nexus Switch does **not** replace or redistribute Claude Code. It configures the
+current terminal environment, optionally starts a local LiteLLM proxy, then
+launches the installed `claude` CLI with the selected provider/model.
+
+> **Status:** `1.0.0` (Node/TS) is the cross-platform rewrite. The published
+> `0.2.x` line is the legacy Windows-only PowerShell implementation. See
+> [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#migration-from-02x).
+
+## Prerequisites
+
+- **Claude Code CLI** — required. Nexus is a launcher, not a standalone agent;
+  every provider (including Ollama) runs through `claude`. Install with:
+  ```bash
+  npm i -g @anthropic-ai/claude-code
+  ```
+  `nexus doctor` flags it if missing, and `nexus <provider>` offers to install it
+  on first launch.
+- **Node.js >= 18**.
+- **Provider credentials** — an OpenRouter/Groq API key, or an Ollama sign-in for
+  `:cloud` models. See [docs/PROVIDERS.md](docs/PROVIDERS.md).
 
 ## Why
 
-Claude Code sessions and provider quotas can block your flow. Nexus Switch lets you rotate between:
+Claude Code sessions and provider quotas can block your flow. Nexus Switch lets
+you rotate between, per terminal, without global state:
 
 - OpenRouter direct Anthropic-compatible endpoint
 - Groq via local LiteLLM proxy
@@ -14,89 +36,47 @@ Claude Code sessions and provider quotas can block your flow. Nexus Switch lets 
 - Gemini, Cerebras, Mistral, NVIDIA NIM via LiteLLM templates
 - Anthropic native if you have an API key/subscription
 
-## Install from GitHub
-
-```powershell
-git clone https://github.com/HexaNexus28/nexus-switch.git
-Set-Location .\nexus-switch
-powershell -ExecutionPolicy Bypass -File .\install.ps1
-. $PROFILE
-nexus doctor
-```
-
-## npm/npx install
+## Install
 
 ```bash
-npx @hexanexus/nexus-switch install
-. $PROFILE
+npm i -g @hexanexus/nexus-switch
 nexus doctor
 ```
 
-Other commands: `npx @hexanexus/nexus-switch update` and `npx @hexanexus/nexus-switch uninstall`.
+No shell profile editing — `nexus` is a self-contained bin available immediately.
 
 ## Commands
 
-```powershell
-nexus                         # interactive UI
-n                          # alias
-nexus openrouter              # pick OpenRouter model
-nexus groq                    # pick Groq model, auto-starts LiteLLM proxy
-nexus ollama                  # pick Ollama model
-nexus doctor                  # diagnostics
+```bash
+nexus                         # interactive TUI
+nexus openrouter [model]      # pick / launch an OpenRouter model
+nexus groq [model]            # Groq, auto-starts the LiteLLM proxy
+nexus ollama [model]          # Ollama local/cloud
+nexus doctor                  # diagnostics (claude present, key validity, proxy)
+nexus refresh                 # refresh the model catalog from provider APIs
 nexus credits                 # OpenRouter/Groq/Ollama status
-nexus proxy-start             # start LiteLLM proxy
-nexus proxy-stop              # stop LiteLLM proxy
-nexus update                  # update to the latest npm release
-claude-set-key groq gsk_...   # persist provider key
+nexus key set groq gsk_...    # persist a provider key
+nexus key list                # list configured keys (masked)
+nexus proxy start             # start the LiteLLM proxy
+nexus proxy stop              # stop the LiteLLM proxy
+nexus update                  # update to the latest release
+nexus uninstall               # remove
 ```
 
-## API keys
+## Documentation
 
-Keys are stored as user environment variables, not in JSON files.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — runtime flow, modules, platform layer.
+- [docs/PROVIDERS.md](docs/PROVIDERS.md) — per-provider keys and commands.
 
-```powershell
-claude-set-key openrouter sk-or-...
-claude-set-key groq gsk_...
-claude-set-key gemini AIza...
-claude-set-key cerebras ...
-claude-set-key mistral ...
-claude-set-key nvidia ...
-```
+## Legal
 
-Provider templates reference variables such as `${OPENROUTER_API_KEY}` and `${GROQ_API_KEY}`.
+Nexus Switch is independent and **not affiliated with or endorsed by** Anthropic
+or any provider. "Claude" and "Claude Code" are trademarks of Anthropic, PBC,
+used here only to describe interoperability. Nexus Switch does **not** bundle or
+redistribute Claude Code — it launches the `claude` CLI you install yourself. You
+are responsible for complying with the terms of service of Anthropic and of each
+provider whose keys you configure. See [NOTICE](NOTICE).
 
-## LiteLLM role
+## License
 
-Claude Code speaks Anthropic-style configuration (`ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`). Groq/Gemini/Cerebras/Mistral mostly expose OpenAI-style or provider-specific APIs. LiteLLM runs locally on `http://localhost:4000` and translates the request to the configured provider.
-
-OpenRouter does not need LiteLLM in this setup because it exposes an Anthropic-compatible endpoint directly at `https://openrouter.ai/api`.
-
-## Multi-terminal & login
-
-Nexus Switch sets `ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN` as **process-level** env vars, so each terminal carries its own provider context independently.
-
-Do **not** run `/logout` to switch to OpenRouter or a LiteLLM provider. Claude Code's OAuth login lives in a single global file (`~/.claude/.credentials.json`); logging out in one terminal logs you out everywhere. When the env vars point to a gateway, Claude Code routes there and ignores the OAuth login — the native login only applies to `api.anthropic.com`. You can stay logged in natively in one terminal and use OpenRouter in another at the same time.
-
-## Repo layout
-
-```text
-src/NexusSwitch.ps1          # core UI/launcher
-providers/*.json             # provider/model templates, no secrets
-litellm/litellm-config.yaml  # local proxy config
-install.ps1                  # installs to ~/.nexus-switch and wires $PROFILE
-update.ps1                   # updates installed copy
-uninstall.ps1                # removes profile hook and installed files
-bin/nexus-switch.js          # npm/npx wrapper
-```
-
-## Roadmap
-
-- [x] `v0.1` — Windows PowerShell installer + interactive keyboard UI
-- [x] `v0.2` — npm/npx wrapper + provider templates (OpenRouter, Groq, Gemini, Cerebras, Mistral, NVIDIA NIM, Ollama, Anthropic)
-- [ ] `v0.3` — automatic failover chains
-- [ ] `v0.4` — usage stats and local dashboard
-- [ ] `v1.0` — cross-platform Nexus Router daemon
-
-## Branding/legal note
-
-Nexus Switch is an independent launcher/router. Claude Code is a separate tool that users must install and authenticate according to Anthropic's terms.
+MIT — see [LICENSE](LICENSE).

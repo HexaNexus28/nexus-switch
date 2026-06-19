@@ -31,8 +31,13 @@
     "provenance": true
   },
   "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
     "install:local": "powershell -ExecutionPolicy Bypass -File install.ps1",
     "test:syntax": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$e=$null;[void][System.Management.Automation.Language.Parser]::ParseFile('src/NexusSwitch.ps1',[ref]$null,[ref]$e);if($e){$e;exit 1}else{'OK'}\""
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
   },
   "keywords": ["claude-code", "router", "litellm", "openrouter", "groq", "ollama"],
   "license": "MIT",

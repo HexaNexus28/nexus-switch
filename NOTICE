@@ -1,0 +1,16 @@
+Nexus Switch — NOTICE
+
+Nexus Switch is an independent, open-source terminal launcher. It is NOT
+affiliated with, endorsed by, or sponsored by Anthropic, OpenRouter, Groq,
+Ollama, or any provider it integrates with.
+
+"Claude" and "Claude Code" are trademarks of Anthropic, PBC. Other product and
+company names are trademarks of their respective owners. They are used here only
+to describe interoperability (nominative use).
+
+Nexus Switch does not include, bundle, or redistribute Claude Code or any
+provider software. It launches the `claude` CLI that the user has installed and
+licensed independently. You are responsible for complying with the terms of
+service of Anthropic and of every provider whose API keys you configure.
+
+The Nexus Switch source code is licensed under the MIT License (see LICENSE).
