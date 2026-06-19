@@ -185,6 +185,27 @@ function _ok_bad([bool]$ok) {
     return "${RD}KO$R"
 }
 
+function _claude_exists { [bool](Get-Command claude -ErrorAction SilentlyContinue) }
+
+function _ensure_claude {
+    # Pre-flight : nexus est un launcher pour Claude Code, claude doit exister.
+    if (_claude_exists) { return $true }
+    Write-Host "  ${RD}Claude Code CLI absent.$R"
+    Write-Host "  ${DG}Requis : nexus lance Claude Code, il n'est pas un agent autonome.$R"
+    $ans = Read-Host "  Installer maintenant via npm ? [o/N]"
+    if ($ans -notmatch '^[oOyY]') {
+        Write-Host "  ${YL}Abandon. Install manuelle : npm i -g @anthropic-ai/claude-code$R"
+        return $false
+    }
+    npm i -g '@anthropic-ai/claude-code'
+    if (-not (_claude_exists)) {
+        Write-Host "  ${RD}Echec install. Verifie npm puis : npm i -g @anthropic-ai/claude-code$R"
+        return $false
+    }
+    Write-Host "  ${GR}Claude Code installe.$R"
+    return $true
+}
+
 function _active_status_line {
     $base = [Environment]::GetEnvironmentVariable("ANTHROPIC_BASE_URL", "Process")
     $model = [Environment]::GetEnvironmentVariable("ANTHROPIC_MODEL", "Process")
@@ -585,6 +606,8 @@ function _screen_doctor {
     $base = [Environment]::GetEnvironmentVariable("ANTHROPIC_BASE_URL", "Process")
     $model = [Environment]::GetEnvironmentVariable("ANTHROPIC_MODEL", "Process")
 
+    $claudeOk = _claude_exists
+    Write-Host "  $CY$($(_ok_bad $claudeOk))$R  Claude Code CLI                  $DG$(if($claudeOk){'present'}else{'ABSENT - npm i -g @anthropic-ai/claude-code'})$R"
     Write-Host "  $CY$($(_ok_bad (-not $localCfg)))$R  settings.local.json absent       $DG$(if($localCfg){'pollution globale possible'}else{'isolation terminal OK'})$R"
     Write-Host "  $CY$($(_ok_bad ([bool]$openrouterKey)))$R  OpenRouter key configuree"
     Write-Host "  $CY$($(_ok_bad $true))$R  Login Anthropic natif            $DG$(if($creds){'present (coexiste avec les env vars, pas de /logout)'}else{'absent'})$R"
@@ -610,6 +633,7 @@ function _screen_doctor {
 # =============================================================================
 
 function _launch([string]$pName, [string]$model, [object[]]$rest = @()) {
+    if (-not (_ensure_claude)) { return }
     $prov = _p_load $pName
     _ui_launch_anim $prov.name $model
 
