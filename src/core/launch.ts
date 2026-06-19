@@ -12,9 +12,17 @@ export function claudeExists(): boolean {
 export function launch(provider: Provider, model: string, rest: string[]): void {
   if (provider.type === 'ollama') {
     const args = ['launch', 'claude', '--model', model, ...(rest.length ? ['--', ...rest] : [])];
-    spawnSync('ollama', args, { stdio: 'inherit' });
+    const result = spawnSync('ollama', args, { stdio: 'inherit' });
+    if (result.error) {
+      console.error(`Echec ollama : ${result.error.message}`);
+    } else if (result.status && result.status !== 0) {
+      console.error(`ollama a quitte (code ${result.status}). Le modele '${model}' existe-t-il ? -> ollama list`);
+    }
     return;
   }
   applyProviderEnv(provider, model);
-  spawnSync('claude', rest, { stdio: 'inherit' });
+  const result = spawnSync('claude', rest, { stdio: 'inherit' });
+  if (result.error) {
+    console.error(`Echec claude : ${result.error.message}`);
+  }
 }

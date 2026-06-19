@@ -3,15 +3,14 @@
   "name": "Ollama",
   "default": "qwen3.5:cloud",
   "models": [
-    { "id": "qwen3.5:cloud", "name": "Qwen3.5 Cloud", "free": false, "ram_gb": null, "note": "cloud, coding/tool use" },
-    { "id": "kimi-k2.6:cloud", "name": "Kimi K2.6 Cloud", "free": false, "ram_gb": null, "note": "cloud, coding/agent swarm" },
-    { "id": "glm-5.1:cloud", "name": "GLM 5.1 Cloud", "free": false, "ram_gb": null, "note": "cloud, reasoning/code" },
-    { "id": "minimax-m2.7:cloud", "name": "MiniMax M2.7 Cloud", "free": false, "ram_gb": null, "note": "cloud, productivity" },
-    { "id": "llama3.1:cloud", "name": "Llama 3.1 Cloud", "free": true, "ram_gb": null, "note": "cloud free tier si disponible" },
-    { "id": "deepseek-r1:cloud", "name": "DeepSeek R1 Cloud", "free": true, "ram_gb": null, "note": "cloud free tier si disponible" },
-    { "id": "qwen3:8b", "name": "Qwen3 8B", "free": true, "ram_gb": 5, "note": "local" },
-    { "id": "qwen3:14b", "name": "Qwen3 14B", "free": true, "ram_gb": 9, "note": "local" },
-    { "id": "qwen3:32b", "name": "Qwen3 32B", "free": true, "ram_gb": 20, "note": "local puissant" },
-    { "id": "codestral:22b", "name": "Codestral 22B", "free": true, "ram_gb": 13, "note": "local coding" }
+    { "id": "qwen3.5:cloud", "name": "Qwen3.5 Cloud", "free": false, "ram_gb": null, "note": "cloud, coding/agent" },
+    { "id": "qwen3-coder:480b-cloud", "name": "Qwen3 Coder 480B Cloud", "free": false, "ram_gb": null, "note": "cloud, coding lourd" },
+    { "id": "glm-5:cloud", "name": "GLM 5 Cloud", "free": false, "ram_gb": null, "note": "cloud, reasoning/code" },
+    { "id": "kimi-k2.5:cloud", "name": "Kimi K2.5 Cloud", "free": false, "ram_gb": null, "note": "cloud, agent" },
+    { "id": "minimax-m2.5:cloud", "name": "MiniMax M2.5 Cloud", "free": false, "ram_gb": null, "note": "cloud, productivite" },
+    { "id": "deepseek-v3.2:cloud", "name": "DeepSeek V3.2 Cloud", "free": false, "ram_gb": null, "note": "cloud, reasoning" },
+    { "id": "deepseek-v4-pro:cloud", "name": "DeepSeek V4 Pro Cloud", "free": false, "ram_gb": null, "note": "cloud, reasoning fort" },
+    { "id": "deepseek-v4-flash:cloud", "name": "DeepSeek V4 Flash Cloud", "free": false, "ram_gb": null, "note": "cloud, rapide" },
+    { "id": "llama3.2:3b", "name": "Llama 3.2 3B", "free": true, "ram_gb": 3, "note": "local, leger" }
   ]
 }

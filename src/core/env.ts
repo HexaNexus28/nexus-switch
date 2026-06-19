@@ -13,4 +13,11 @@ export function applyProviderEnv(provider: Provider, model: string): void {
     }
   }
   process.env.ANTHROPIC_MODEL = model;
+
+  // Non-Anthropic models behind LiteLLM (Groq, etc.) reject Anthropic thinking_blocks
+  // (400 'thinking_blocks' is unsupported). Disable extended thinking client-side so
+  // Claude Code never produces them.
+  if (provider.type === 'litellm') {
+    process.env.MAX_THINKING_TOKENS = '0';
+  }
 }
