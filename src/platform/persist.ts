@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -15,6 +15,25 @@ export function persistKey(varName: string, value: string): void {
     return;
   }
   upsertShellRc(varName, value);
+}
+
+/**
+ * Read a persisted key, preferring the current process env, then the durable store
+ * (Windows User-scope registry). Avoids regenerating a key another session already set.
+ */
+export function readPersistedKey(name: string): string | undefined {
+  const inProcess = process.env[name];
+  if (inProcess) return inProcess;
+  if (process.platform === 'win32') {
+    try {
+      const out = execFileSync('reg', ['query', 'HKCU\\Environment', '/v', name], { encoding: 'utf8' });
+      const match = out.match(new RegExp(`${name}\\s+REG_(?:EXPAND_)?SZ\\s+(.+)`));
+      if (match?.[1]) return match[1].trim();
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
 }
 
 function shellRc(): string {

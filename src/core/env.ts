@@ -1,4 +1,5 @@
 import type { Provider } from '../types/provider.types.js';
+import { readPersistedKey } from '../platform/persist.js';
 
 /** Resolve ${VAR} placeholders against the current environment. */
 function resolveTemplate(value: string): string {
@@ -7,6 +8,12 @@ function resolveTemplate(value: string): string {
 
 /** Apply a provider's ANTHROPIC_* template + selected model to process.env before launch. */
 export function applyProviderEnv(provider: Provider, model: string): void {
+  // The proxy master key may have been set by another session; hydrate it so the
+  // ${NEXUS_PROXY_KEY} auth token matches the running proxy (else LiteLLM 'No connected db').
+  if (provider.type === 'litellm' && !process.env.NEXUS_PROXY_KEY) {
+    const persisted = readPersistedKey('NEXUS_PROXY_KEY');
+    if (persisted) process.env.NEXUS_PROXY_KEY = persisted;
+  }
   if (provider.env) {
     for (const [key, template] of Object.entries(provider.env)) {
       process.env[key] = resolveTemplate(template);

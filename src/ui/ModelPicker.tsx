@@ -10,7 +10,8 @@ interface Props {
 
 export function ModelPicker({ provider, onSelect, onBack }: Props) {
   const [cursor, setCursor] = useState(0);
-  const models = provider.models;
+  // Free models first — the ones the user actually wants to reach quickly.
+  const models = [...provider.models].sort((a, b) => Number(b.free) - Number(a.free));
 
   useInput((input, key) => {
     if (key.upArrow) setCursor((c) => Math.max(0, c - 1));

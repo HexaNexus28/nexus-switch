@@ -5,7 +5,7 @@ import { Socket } from 'node:net';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ProviderType } from '../types/provider.types.js';
-import { persistKey } from '../platform/persist.js';
+import { persistKey, readPersistedKey } from '../platform/persist.js';
 
 const PROXY_HOST = '127.0.0.1';
 const PROXY_PORT = 4000;
@@ -61,8 +61,11 @@ function litellmExe(): string | null {
 
 /** Master key for the gateway, generated once and persisted; providers read ${NEXUS_PROXY_KEY}. */
 function ensureProxyKey(): string {
-  const existing = process.env.NEXUS_PROXY_KEY;
-  if (existing) return existing;
+  const existing = readPersistedKey('NEXUS_PROXY_KEY');
+  if (existing) {
+    process.env.NEXUS_PROXY_KEY = existing;
+    return existing;
+  }
   const key = `sk-nexus-${randomUUID().replace(/-/g, '')}`;
   persistKey('NEXUS_PROXY_KEY', key);
   return key;

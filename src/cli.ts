@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { refreshOpenRouter } from './core/catalog.js';
+import { refreshOllama, refreshOpenRouter } from './core/catalog.js';
 import { litellmKeyStatus, openRouterCredits } from './core/credits.js';
 import { runDoctor } from './core/doctor.js';
 import { KEY_VARS, keyVarFor, readKey } from './core/keys.js';
@@ -28,6 +28,12 @@ async function cmdRefresh(): Promise<void> {
   const { kept, removed } = await refreshOpenRouter();
   const tail = removed.length ? ` : ${removed.join(', ')}` : '';
   console.log(`OpenRouter: ${kept} modeles conserves, ${removed.length} retires${tail}`);
+  try {
+    const { models } = refreshOllama();
+    console.log(`Ollama    : ${models} modeles (depuis ollama list)`);
+  } catch (err) {
+    console.log(`Ollama    : ${err instanceof Error ? err.message : 'ignore'}`);
+  }
 }
 
 function cmdKey(args: string[]): void {
