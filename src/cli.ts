@@ -1,8 +1,11 @@
+import { spawnSync } from 'node:child_process';
 import { refreshOpenRouter } from './core/catalog.js';
+import { litellmKeyStatus, openRouterCredits } from './core/credits.js';
 import { runDoctor } from './core/doctor.js';
 import { KEY_VARS, keyVarFor, readKey } from './core/keys.js';
 import { launch } from './core/launch.js';
 import { listProviders, loadProvider } from './core/providers.js';
+import { ensureProxyForProvider, startProxy, stopProxy } from './core/proxy.js';
 import { persistKey } from './platform/persist.js';
 import { ensureClaude } from './prompt.js';
 
@@ -62,10 +65,46 @@ async function cmdLaunch(name: string, rest: string[]): Promise<void> {
     return;
   }
   const provider = loadProvider(name);
+  if (!(await ensureProxyForProvider(provider.type))) {
+    process.exitCode = 1;
+    return;
+  }
   const hasModel = Boolean(rest[0]) && !rest[0]!.startsWith('-');
   const model = hasModel ? rest[0]! : provider.default;
   const passthrough = hasModel ? rest.slice(1) : rest;
   launch(provider, model, passthrough);
+}
+
+async function cmdProxy(args: string[]): Promise<void> {
+  const sub = args[0];
+  if (sub === 'start') {
+    if (await startProxy()) console.log('Proxy LiteLLM pret sur :4000');
+    else process.exitCode = 1;
+    return;
+  }
+  if (sub === 'stop') {
+    stopProxy();
+    console.log('Proxy LiteLLM arrete.');
+    return;
+  }
+  console.error('Usage: nexus proxy start|stop');
+  process.exitCode = 1;
+}
+
+async function cmdCredits(): Promise<void> {
+  console.log(`OpenRouter : ${await openRouterCredits()}`);
+  for (const { provider, present } of litellmKeyStatus()) {
+    console.log(`${provider.padEnd(10)} : ${present ? 'cle presente' : 'absente'}`);
+  }
+  console.log('Ollama     : local illimite · cloud quota (https://ollama.com/dashboard)');
+}
+
+function cmdUpdate(): void {
+  spawnSync('npm', ['i', '-g', '@hexanexus/nexus-switch@latest'], { stdio: 'inherit' });
+}
+
+function cmdUninstall(): void {
+  spawnSync('npm', ['rm', '-g', '@hexanexus/nexus-switch'], { stdio: 'inherit' });
 }
 
 function cmdHelp(): void {
@@ -77,9 +116,12 @@ function cmdHelp(): void {
       '  nexus                       interactive TUI',
       '  nexus <provider> [model] [-- claude flags]',
       '  nexus doctor',
+      '  nexus credits',
       '  nexus refresh',
       '  nexus key set <provider> <key>',
       '  nexus key list',
+      '  nexus proxy start|stop',
+      '  nexus update | uninstall',
       '',
       `Providers : ${listProviders().join(', ')}`,
     ].join('\n'),
@@ -108,6 +150,18 @@ async function main(): Promise<void> {
       break;
     case 'key':
       cmdKey(rest);
+      break;
+    case 'proxy':
+      await cmdProxy(rest);
+      break;
+    case 'credits':
+      await cmdCredits();
+      break;
+    case 'update':
+      cmdUpdate();
+      break;
+    case 'uninstall':
+      cmdUninstall();
       break;
     case 'help':
     case '--help':
