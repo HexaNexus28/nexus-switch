@@ -2,7 +2,7 @@
   "name": "@hexanexus/nexus-switch",
   "version": "0.2.2",
   "description": "Terminal launcher/router for Claude Code across OpenRouter, Groq, Ollama and LiteLLM providers.",
-  "type": "commonjs",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/HexaNexus28/nexus-switch.git"
@@ -24,7 +24,7 @@
     "LICENSE"
   ],
   "bin": {
-    "nexus-switch": "bin/nexus-switch.js"
+    "nexus-switch": "bin/nexus-switch.cjs"
   },
   "publishConfig": {
     "access": "public",
@@ -36,8 +36,13 @@
     "install:local": "powershell -ExecutionPolicy Bypass -File install.ps1",
     "test:syntax": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$e=$null;[void][System.Management.Automation.Language.Parser]::ParseFile('src/NexusSwitch.ps1',[ref]$null,[ref]$e);if($e){$e;exit 1}else{'OK'}\""
   },
+  "dependencies": {
+    "ink": "^5.0.1",
+    "react": "^18.3.1"
+  },
   "devDependencies": {
     "@types/node": "^22.19.21",
+    "@types/react": "^18.3.12",
     "typescript": "^5.7.2"
   },
   "keywords": [

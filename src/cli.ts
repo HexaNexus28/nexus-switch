@@ -1,32 +1,13 @@
-import { spawnSync } from 'node:child_process';
-import { createInterface } from 'node:readline/promises';
 import { refreshOpenRouter } from './core/catalog.js';
 import { runDoctor } from './core/doctor.js';
 import { KEY_VARS, keyVarFor, readKey } from './core/keys.js';
-import { claudeExists, launch } from './core/launch.js';
+import { launch } from './core/launch.js';
 import { listProviders, loadProvider } from './core/providers.js';
 import { persistKey } from './platform/persist.js';
+import { ensureClaude } from './prompt.js';
 
 function mark(ok: boolean): string {
   return ok ? 'OK' : 'KO';
-}
-
-async function ensureClaude(): Promise<boolean> {
-  if (claudeExists()) return true;
-  console.error('Claude Code CLI absent. Nexus lance Claude Code, ce n’est pas un agent autonome.');
-  if (!process.stdin.isTTY) {
-    console.error('Install : npm i -g @anthropic-ai/claude-code');
-    return false;
-  }
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const answer = (await rl.question('Installer maintenant via npm ? [o/N] ')).trim();
-  rl.close();
-  if (!/^[oy]/i.test(answer)) {
-    console.error('Abandon. Install manuelle : npm i -g @anthropic-ai/claude-code');
-    return false;
-  }
-  spawnSync('npm', ['i', '-g', '@anthropic-ai/claude-code'], { stdio: 'inherit' });
-  return claudeExists();
 }
 
 async function cmdDoctor(): Promise<void> {
@@ -93,6 +74,7 @@ function cmdHelp(): void {
       'Nexus Switch',
       '',
       'Usage:',
+      '  nexus                       interactive TUI',
       '  nexus <provider> [model] [-- claude flags]',
       '  nexus doctor',
       '  nexus refresh',
@@ -105,7 +87,18 @@ function cmdHelp(): void {
 }
 
 async function main(): Promise<void> {
-  const [cmd = 'help', ...rest] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  if (args.length === 0) {
+    if (process.stdin.isTTY) {
+      const { runTui } = await import('./ui/run.js');
+      await runTui();
+    } else {
+      cmdHelp();
+    }
+    return;
+  }
+  const cmd = args[0]!;
+  const rest = args.slice(1);
   switch (cmd) {
     case 'doctor':
       await cmdDoctor();

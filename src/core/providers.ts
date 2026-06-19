@@ -1,13 +1,16 @@
 import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Provider, ProviderType } from '../types/provider.types.js';
 
 const VALID_TYPES: readonly ProviderType[] = ['openrouter', 'litellm', 'ollama', 'anthropic'];
 
+// Resolves to dist/core at runtime; providers/ sits two levels up at the package root.
+const moduleDir = dirname(fileURLToPath(import.meta.url));
+
 function providersDir(): string {
   const home = process.env.NEXUS_SWITCH_HOME;
-  // __dirname resolves to dist/core at runtime; providers/ sits at the package root.
-  return home ? join(home, 'providers') : join(__dirname, '..', '..', 'providers');
+  return home ? join(home, 'providers') : join(moduleDir, '..', '..', 'providers');
 }
 
 export function providersPath(name: string): string {
