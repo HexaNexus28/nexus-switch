@@ -21,10 +21,13 @@ export function applyProviderEnv(provider: Provider, model: string): void {
   }
   process.env.ANTHROPIC_MODEL = model;
 
-  // Non-Anthropic models behind LiteLLM (Groq, etc.) reject Anthropic thinking_blocks
-  // (400 'thinking_blocks' is unsupported). Disable extended thinking client-side so
-  // Claude Code never produces them.
+  // Non-Anthropic models behind LiteLLM (Groq, etc.) reject Anthropic-native fields:
+  //   thinking_blocks  -> disabled by MAX_THINKING_TOKENS=0
+  //   output_config    -> the adaptive-thinking effort field; killed by disabling
+  //                       adaptive thinking (reverts to the fixed MAX_THINKING_TOKENS budget).
+  // Set client-side so Claude Code never emits them (cf. claude-code issue #33506).
   if (provider.type === 'litellm') {
     process.env.MAX_THINKING_TOKENS = '0';
+    process.env.CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING = '1';
   }
 }
