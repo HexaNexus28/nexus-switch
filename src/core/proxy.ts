@@ -59,6 +59,11 @@ function litellmExe(): string | null {
   return first ? first.trim() : null;
 }
 
+/** Is the litellm CLI on PATH? Only the LiteLLM-backed providers need it. */
+export function litellmExists(): boolean {
+  return litellmExe() !== null;
+}
+
 /** Master key for the gateway, generated once and persisted; providers read ${NEXUS_PROXY_KEY}. */
 function ensureProxyKey(): string {
   const existing = readPersistedKey('NEXUS_PROXY_KEY');

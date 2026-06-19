@@ -2,7 +2,7 @@ import { render } from 'ink';
 import { loadAllProviders } from '../core/providers.js';
 import { launch } from '../core/launch.js';
 import { ensureProxyForProvider } from '../core/proxy.js';
-import { ensureClaude } from '../prompt.js';
+import { ensureClaude, ensureLitellm } from '../prompt.js';
 import { App, type Choice } from './App.js';
 
 /** Render the interactive TUI, then launch the selected provider/model. */
@@ -27,6 +27,10 @@ export async function runTui(): Promise<void> {
 
   if (!choice) return;
   if (!(await ensureClaude())) {
+    process.exitCode = 1;
+    return;
+  }
+  if (choice.provider.type === 'litellm' && !(await ensureLitellm())) {
     process.exitCode = 1;
     return;
   }

@@ -7,7 +7,7 @@ import { launch } from './core/launch.js';
 import { listProviders, loadProvider } from './core/providers.js';
 import { ensureProxyForProvider, startProxy, stopProxy } from './core/proxy.js';
 import { persistKey } from './platform/persist.js';
-import { ensureClaude } from './prompt.js';
+import { ensureClaude, ensureLitellm } from './prompt.js';
 
 function mark(ok: boolean): string {
   return ok ? 'OK' : 'KO';
@@ -71,6 +71,10 @@ async function cmdLaunch(name: string, rest: string[]): Promise<void> {
     return;
   }
   const provider = loadProvider(name);
+  if (provider.type === 'litellm' && !(await ensureLitellm())) {
+    process.exitCode = 1;
+    return;
+  }
   if (!(await ensureProxyForProvider(provider.type))) {
     process.exitCode = 1;
     return;
