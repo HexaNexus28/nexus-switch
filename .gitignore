@@ -10,3 +10,4 @@ secrets.json
 
 # Notes personnelles locales (non versionnees)
 docs/NOTES-RELEASE-CI.md
+docs/NOTES-NODE-REWRITE.md
