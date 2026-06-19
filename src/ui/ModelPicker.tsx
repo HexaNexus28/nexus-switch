@@ -25,11 +25,13 @@ export function ModelPicker({ provider, onSelect, onBack }: Props) {
         {provider.name}
       </Text>
       {models.map((m, i) => (
-        <Text key={m.id} inverse={i === cursor} color={m.free ? 'green' : 'gray'}>
+        <Text key={m.id} inverse={i === cursor}>
           {i === cursor ? '▶ ' : '  '}
+          <Text color={m.free ? 'green' : 'gray'}>{m.free ? 'GRATUIT' : 'PAYANT '}</Text>
+          {'  '}
+          <Text color="gray">{typeof m.ram_gb === 'number' ? `~${m.ram_gb}GB`.padEnd(6) : 'cloud '}</Text>
+          {'  '}
           {m.name}
-          {m.free ? ' · gratuit' : ''}
-          {typeof m.ram_gb === 'number' ? ` · ${m.ram_gb} Go` : ''}
         </Text>
       ))}
       <Text color="gray">↑↓ naviguer · Entrée lancer · ← retour</Text>
