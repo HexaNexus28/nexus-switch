@@ -1,4 +1,5 @@
 node_modules/
+dist/
 .env
 .env.*
 *.log
@@ -9,3 +10,5 @@ secrets.json
 
 # Notes personnelles locales (non versionnees)
 docs/NOTES-RELEASE-CI.md
+docs/NOTES-NODE-REWRITE.md
+docs/NOTES-CODEMAP.md

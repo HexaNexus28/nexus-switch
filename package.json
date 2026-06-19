@@ -1,8 +1,8 @@
 {
   "name": "@hexanexus/nexus-switch",
-  "version": "0.2.2",
-  "description": "Terminal launcher/router for Claude Code across OpenRouter, Groq, Ollama and LiteLLM providers.",
-  "type": "commonjs",
+  "version": "1.0.0",
+  "description": "Cross-platform terminal launcher/router for Claude Code across OpenRouter, Groq, Ollama and LiteLLM providers.",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/HexaNexus28/nexus-switch.git"
@@ -12,29 +12,43 @@
   },
   "homepage": "https://github.com/HexaNexus28/nexus-switch#readme",
   "files": [
-    "bin/",
-    "src/",
+    "bin/nexus.js",
+    "dist/",
     "providers/",
     "litellm/",
-    "docs/",
-    "install.ps1",
-    "update.ps1",
-    "uninstall.ps1",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE"
   ],
   "bin": {
-    "nexus-switch": "bin/nexus-switch.js"
+    "nexus": "bin/nexus.js"
   },
   "publishConfig": {
     "access": "public",
     "provenance": true
   },
   "scripts": {
-    "install:local": "powershell -ExecutionPolicy Bypass -File install.ps1",
-    "test:syntax": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$e=$null;[void][System.Management.Automation.Language.Parser]::ParseFile('src/NexusSwitch.ps1',[ref]$null,[ref]$e);if($e){$e;exit 1}else{'OK'}\""
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "prepare": "tsc"
   },
-  "keywords": ["claude-code", "router", "litellm", "openrouter", "groq", "ollama"],
+  "dependencies": {
+    "ink": "^5.0.1",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.21",
+    "@types/react": "^18.3.12",
+    "typescript": "^5.7.2"
+  },
+  "keywords": [
+    "claude-code",
+    "router",
+    "litellm",
+    "openrouter",
+    "groq",
+    "ollama"
+  ],
   "license": "MIT",
   "engines": {
     "node": ">=18"

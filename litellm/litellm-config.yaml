@@ -105,6 +105,11 @@ litellm_settings:
   # sans equivalent OpenAI. drop_params ne strippe que les params OpenAI connus :
   # ceux-ci doivent etre listes explicitement sinon ils sont transmis au provider -> 400.
   additional_drop_params: ["output_config", "mcp_servers", "container", "thinking"]
+  # additional_drop_params ne touche QUE les params top-level, pas les champs dans les
+  # messages. Les blocs thinking_blocks dans l'historique assistant cassent Groq (400) ->
+  # modify_params nettoie la structure des messages pour la rendre compatible provider.
+  # En complement, Nexus pose MAX_THINKING_TOKENS=0 cote Claude Code (voir core/env.ts).
+  modify_params: true
 
 general_settings:
   # Cle generee aleatoirement par Nexus (NEXUS_PROXY_KEY, User scope) au 1er demarrage.

@@ -1,13 +1,16 @@
 # Providers
 
+Keys are persisted with `nexus key set <provider> <key>` — on Windows as a User
+environment variable, on macOS/Linux as an `export` line in your shell rc.
+
 ## Direct providers
 
 ### OpenRouter
 
 Key variable: `OPENROUTER_API_KEY`
 
-```powershell
-claude-set-key openrouter sk-or-...
+```bash
+nexus key set openrouter sk-or-...
 nexus openrouter
 ```
 
@@ -19,21 +22,21 @@ The following providers use `http://localhost:4000` through LiteLLM:
 
 | Provider | Key variable | Command |
 |---|---|---|
-| Groq | `GROQ_API_KEY` | `claude-set-key groq ...` |
-| Gemini | `GEMINI_API_KEY` | `claude-set-key gemini ...` |
-| Cerebras | `CEREBRAS_API_KEY` | `claude-set-key cerebras ...` |
-| Mistral | `MISTRAL_API_KEY` | `claude-set-key mistral ...` |
-| NVIDIA NIM | `NVIDIA_NIM_API_KEY` | `claude-set-key nvidia ...` |
+| Groq | `GROQ_API_KEY` | `nexus key set groq ...` |
+| Gemini | `GEMINI_API_KEY` | `nexus key set gemini ...` |
+| Cerebras | `CEREBRAS_API_KEY` | `nexus key set cerebras ...` |
+| Mistral | `MISTRAL_API_KEY` | `nexus key set mistral ...` |
+| NVIDIA NIM | `NVIDIA_NIM_API_KEY` | `nexus key set nvidia ...` |
 
-Start gateway manually:
+Start the gateway manually:
 
-```powershell
-nexus proxy-start
+```bash
+nexus proxy start
 ```
 
-Or just select any LiteLLM-backed provider:
+Or just select any LiteLLM-backed provider (auto-starts the gateway):
 
-```powershell
+```bash
 nexus groq
 nexus gemini
 nexus cerebras
@@ -43,8 +46,9 @@ nexus cerebras
 
 Ollama is launched via:
 
-```powershell
+```bash
 ollama launch claude --model <model>
 ```
 
-No API key is stored by Nexus Switch for local models.
+No API key is stored by Nexus Switch for local models. `:cloud` models require an
+Ollama sign-in.
