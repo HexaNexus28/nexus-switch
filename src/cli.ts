@@ -7,7 +7,7 @@ import { launch } from './core/launch.js';
 import { listProviders, loadProvider } from './core/providers.js';
 import { ensureProxyForProvider, restartProxy, startProxy, stopProxy } from './core/proxy.js';
 import { migrateLegacyEnv, purgeLegacyEnv, wipeSecretStore } from './core/secrets.js';
-import { ensureClaude, ensureLitellm } from './prompt.js';
+import { ensureClaude, ensureLitellm, ensureOllamaModel } from './prompt.js';
 
 function mark(ok: boolean): string {
   return ok ? 'OK' : 'KO';
@@ -82,6 +82,10 @@ async function cmdLaunch(name: string, rest: string[]): Promise<void> {
   const hasModel = Boolean(rest[0]) && !rest[0]!.startsWith('-');
   const model = hasModel ? rest[0]! : provider.default;
   const passthrough = hasModel ? rest.slice(1) : rest;
+  if (provider.type === 'ollama' && !(await ensureOllamaModel(model))) {
+    process.exitCode = 1;
+    return;
+  }
   launch(provider, model, passthrough);
 }
 
