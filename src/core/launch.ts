@@ -16,8 +16,12 @@ export function launch(provider: Provider, model: string, rest: string[]): void 
   resetProviderEnv();
   if (provider.type === 'ollama') {
     // Cloud models route through Ollama's hosted backend, which needs a (free) account.
+    // Local models load fully into RAM/VRAM; coding tools need a large context
+    // (>=64k), whose KV cache can be many GB -> OOM on modest machines.
     if (model.endsWith(':cloud')) {
       console.error("Modele Ollama cloud : si ce n'est pas deja fait, connecte-toi avec `ollama signin` (compte gratuit + quota).");
+    } else {
+      console.error("Modele Ollama local : grand contexte = beaucoup de RAM/VRAM. Si 'out of memory' -> bascule sur un modele :cloud, ou baisse OLLAMA_CONTEXT_LENGTH (ex. 16384) et relance Ollama.");
     }
     const args = ['launch', 'claude', '--model', model, ...(rest.length ? ['--', ...rest] : [])];
     const result = spawnSync('ollama', args, { stdio: 'inherit' });

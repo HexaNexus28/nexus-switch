@@ -36,15 +36,15 @@
       "id": "glm-4.7-flash",
       "name": "GLM 4.7 Flash (local)",
       "free": true,
-      "ram_gb": null,
-      "note": "local gratuit, rapide — ollama pull glm-4.7-flash"
+      "ram_gb": 24,
+      "note": "local gratuit — ~24GB VRAM a 64k contexte (sinon OOM, prefere :cloud)"
     },
     {
       "id": "qwen3.5",
       "name": "Qwen3.5 (local)",
       "free": true,
       "ram_gb": null,
-      "note": "local gratuit, coding/agent — ollama pull qwen3.5"
+      "note": "local gratuit — VRAM elevee a 64k contexte (sinon OOM, prefere :cloud)"
     }
   ]
 }
