@@ -1,6 +1,9 @@
-// Provider -> environment variable holding its API key.
-// Mirrors the legacy _provider_env_map. LiteLLM providers store their real key
-// here, even though their provider env template points at the local proxy.
+// Provider -> the secret name holding its API key.
+// Historically these were env-var names (and still are, for template
+// resolution like ${OPENROUTER_API_KEY}); now the values live in the
+// secret store (core/secrets.ts), never in the global environment.
+
+import { getSecret, setSecret } from './secrets.js';
 
 export const KEY_VARS: Readonly<Record<string, string>> = {
   openrouter: 'OPENROUTER_API_KEY',
@@ -17,5 +20,9 @@ export function keyVarFor(provider: string): string | undefined {
 }
 
 export function readKey(varName: string): string | undefined {
-  return process.env[varName];
+  return getSecret(varName);
+}
+
+export function setKey(varName: string, value: string): void {
+  setSecret(varName, value);
 }

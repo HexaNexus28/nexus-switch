@@ -5,6 +5,18 @@ import { ensureProxyForProvider } from '../core/proxy.js';
 import { ensureClaude, ensureLitellm } from '../prompt.js';
 import { App, type Choice } from './App.js';
 
+/**
+ * Restore stdin to a clean interactive state after Ink released it. The child
+ * CLI (claude / ollama launch claude) decides interactive-vs-`--print` from
+ * stdin being a real TTY; a half-restored stream makes it fall back to --print,
+ * which exits immediately with no UI ("returns to the menu").
+ */
+function restoreStdin(): void {
+  const { stdin } = process;
+  if (stdin.isTTY && typeof stdin.setRawMode === 'function') stdin.setRawMode(false);
+  stdin.resume();
+}
+
 /** Render the interactive TUI, then launch the selected provider/model. */
 export async function runTui(): Promise<void> {
   const providers = loadAllProviders();
@@ -24,6 +36,11 @@ export async function runTui(): Promise<void> {
       />,
     );
   });
+  // unmount() ran synchronously before resolve, so Ink has restored the
+  // terminal here. Re-assert a clean interactive stdin before handing it to
+  // the child; spawning with a half-rendered stdin makes claude / ollama fall
+  // back to non-interactive --print mode -> instant exit, no UI.
+  restoreStdin();
 
   if (!choice) return;
   if (!(await ensureClaude())) {

@@ -2,11 +2,11 @@ import { spawnSync } from 'node:child_process';
 import { refreshOllama, refreshOpenRouter } from './core/catalog.js';
 import { litellmKeyStatus, openRouterCredits } from './core/credits.js';
 import { runDoctor } from './core/doctor.js';
-import { KEY_VARS, keyVarFor, readKey } from './core/keys.js';
+import { KEY_VARS, keyVarFor, readKey, setKey } from './core/keys.js';
 import { launch } from './core/launch.js';
 import { listProviders, loadProvider } from './core/providers.js';
-import { ensureProxyForProvider, startProxy, stopProxy } from './core/proxy.js';
-import { persistKey } from './platform/persist.js';
+import { ensureProxyForProvider, restartProxy, startProxy, stopProxy } from './core/proxy.js';
+import { migrateLegacyEnv, purgeLegacyEnv, wipeSecretStore } from './core/secrets.js';
 import { ensureClaude, ensureLitellm } from './prompt.js';
 
 function mark(ok: boolean): string {
@@ -52,8 +52,8 @@ function cmdKey(args: string[]): void {
       process.exitCode = 1;
       return;
     }
-    persistKey(varName, value);
-    console.log(`${varName} enregistree (persistante).`);
+    setKey(varName, value);
+    console.log(`${varName} enregistree dans ~/.nexus-switch.`);
     return;
   }
   console.error('Usage: nexus key set <provider> <key>  |  nexus key list');
@@ -97,7 +97,12 @@ async function cmdProxy(args: string[]): Promise<void> {
     console.log('Proxy LiteLLM arrete.');
     return;
   }
-  console.error('Usage: nexus proxy start|stop');
+  if (sub === 'restart') {
+    if (await restartProxy()) console.log('Proxy LiteLLM redemarre sur :4000');
+    else process.exitCode = 1;
+    return;
+  }
+  console.error('Usage: nexus proxy start|stop|restart');
   process.exitCode = 1;
 }
 
@@ -114,6 +119,12 @@ function cmdUpdate(): void {
 }
 
 function cmdUninstall(): void {
+  // Leave nothing behind: stop the detached proxy, wipe the store, and purge
+  // any residual global env vars from the pre-store era.
+  stopProxy();
+  wipeSecretStore();
+  for (const varName of [...Object.values(KEY_VARS), 'NEXUS_PROXY_KEY']) purgeLegacyEnv(varName);
+  console.log('Secrets et config supprimes (~/.nexus-switch + env global purge).');
   spawnSync('npm', ['rm', '-g', '@hexanexus/nexus-switch'], { stdio: 'inherit' });
 }
 
@@ -130,7 +141,7 @@ function cmdHelp(): void {
       '  nexus refresh',
       '  nexus key set <provider> <key>',
       '  nexus key list',
-      '  nexus proxy start|stop',
+      '  nexus proxy start|stop|restart',
       '  nexus update | uninstall',
       '',
       `Providers : ${listProviders().join(', ')}`,
@@ -139,6 +150,13 @@ function cmdHelp(): void {
 }
 
 async function main(): Promise<void> {
+  // One-time: pull any nexus-managed key still in the global env into the store,
+  // then purge it from the env. Silent and idempotent (guarded by a marker).
+  try {
+    migrateLegacyEnv();
+  } catch {
+    /* migration is best-effort; never block a launch on it */
+  }
   const args = process.argv.slice(2);
   if (args.length === 0) {
     if (process.stdin.isTTY) {

@@ -10,8 +10,11 @@ export function claudeExists(): boolean {
 
 /** Launch claude for the selected provider/model, inheriting the terminal. */
 export function launch(provider: Provider, model: string, rest: string[]): void {
+  // Single pipeline: always wipe stale provider overrides first (delete, never ""),
+  // then branch. A leftover gateway BASE_URL from a previous provider would
+  // otherwise hijack the launched claude.
+  resetProviderEnv();
   if (provider.type === 'ollama') {
-    resetProviderEnv();
     const args = ['launch', 'claude', '--model', model, ...(rest.length ? ['--', ...rest] : [])];
     const result = spawnSync('ollama', args, { stdio: 'inherit' });
     if (result.error) {

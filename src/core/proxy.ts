@@ -1,30 +1,52 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { Socket } from 'node:net';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import type { ProviderType } from '../types/provider.types.js';
-import { persistKey, readPersistedKey } from '../platform/persist.js';
+import { generatedConfigPath, litellmDir, writeLitellmConfig } from './litellm-config.js';
+import { getSecret, setSecret } from './secrets.js';
 
 const PROXY_HOST = '127.0.0.1';
 const PROXY_PORT = 4000;
 
-const LITELLM_KEY_VARS = [
-  'GROQ_API_KEY',
-  'GEMINI_API_KEY',
-  'CEREBRAS_API_KEY',
-  'MISTRAL_API_KEY',
-  'NVIDIA_NIM_API_KEY',
-  'CLOUDFLARE_API_TOKEN',
-] as const;
+/** Marker storing the config hash the running proxy was started with. */
+function configMarkerPath(): string {
+  return join(litellmDir(), '.proxy-config.hash');
+}
 
-const moduleDir = dirname(fileURLToPath(import.meta.url));
+/** SHA-256 of the on-disk generated config, or null if it cannot be read. */
+function configHash(): string | null {
+  try {
+    return createHash('sha256').update(readFileSync(generatedConfigPath())).digest('hex');
+  } catch {
+    return null;
+  }
+}
 
-function litellmConfigPath(): string {
-  const home = process.env.NEXUS_SWITCH_HOME;
-  const root = home ?? join(moduleDir, '..', '..');
-  return join(root, 'litellm', 'litellm-config.yaml');
+/**
+ * Does the running proxy reflect the current config? False when no marker
+ * exists (proxy started by an older nexus / externally) or the hash differs
+ * (config changed after the proxy booted — LiteLLM never hot-reloads it).
+ */
+function proxyConfigMatches(): boolean {
+  const hash = configHash();
+  if (!hash) return true; // can't read config -> don't churn the proxy
+  try {
+    return readFileSync(configMarkerPath(), 'utf8').trim() === hash;
+  } catch {
+    return false;
+  }
+}
+
+function writeConfigMarker(): void {
+  const hash = configHash();
+  if (!hash) return;
+  try {
+    writeFileSync(configMarkerPath(), hash);
+  } catch {
+    /* best-effort: a missing marker just forces a restart next time */
+  }
 }
 
 function delay(ms: number): Promise<void> {
@@ -47,10 +69,6 @@ export function proxyRunning(): Promise<boolean> {
   });
 }
 
-function hasAnyLiteLLMKey(): boolean {
-  return LITELLM_KEY_VARS.some((v) => Boolean(process.env[v]));
-}
-
 function litellmExe(): string | null {
   const probe = process.platform === 'win32' ? 'where' : 'which';
   const result = spawnSync(probe, ['litellm'], { encoding: 'utf8' });
@@ -64,27 +82,22 @@ export function litellmExists(): boolean {
   return litellmExe() !== null;
 }
 
-/** Master key for the gateway, generated once and persisted; providers read ${NEXUS_PROXY_KEY}. */
+/** Master key for the gateway, generated once and stored; providers read ${NEXUS_PROXY_KEY}. */
 function ensureProxyKey(): string {
-  const existing = readPersistedKey('NEXUS_PROXY_KEY');
-  if (existing) {
-    process.env.NEXUS_PROXY_KEY = existing;
-    return existing;
-  }
+  const existing = getSecret('NEXUS_PROXY_KEY');
+  if (existing) return existing;
   const key = `sk-nexus-${randomUUID().replace(/-/g, '')}`;
-  persistKey('NEXUS_PROXY_KEY', key);
+  setSecret('NEXUS_PROXY_KEY', key);
   return key;
 }
 
 /** Start the LiteLLM gateway on loopback:4000. Returns whether it is reachable. */
 export async function startProxy(): Promise<boolean> {
-  const config = litellmConfigPath();
-  if (!existsSync(config)) {
-    console.error('litellm-config.yaml introuvable.');
-    return false;
-  }
-  if (!hasAnyLiteLLMKey()) {
-    console.error('Aucune cle LiteLLM. Configure : nexus key set groq|gemini|cerebras|mistral|nvidia <cle>');
+  const generated = writeLitellmConfig();
+  if (!generated.hasModels) {
+    // LiteLLM is plumbing (no key of its own); it needs at least one PROVIDER
+    // key to have something to route. The keys belong to groq/gemini/etc.
+    console.error('Aucune cle provider pour le proxy. Configure : nexus key set groq|gemini|cerebras|mistral|nvidia <cle>');
     return false;
   }
   if (await proxyRunning()) return true;
@@ -93,20 +106,41 @@ export async function startProxy(): Promise<boolean> {
     console.error('litellm introuvable. Install : pip install "litellm[proxy]"');
     return false;
   }
-  ensureProxyKey();
+  const proxyKey = ensureProxyKey();
+  // Secrets are injected ONLY into this child's env (never the global env):
+  // the master key + each provider key the generated config references.
+  const childEnv: NodeJS.ProcessEnv = { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' };
+  childEnv.NEXUS_PROXY_KEY = proxyKey;
+  for (const keyVar of generated.keyVars) {
+    const value = getSecret(keyVar);
+    if (value) childEnv[keyVar] = value;
+  }
   // --host 127.0.0.1 : sinon LiteLLM bind 0.0.0.0 -> exposition LAN avec master key connue.
-  const child = spawn(exe, ['--config', config, '--host', PROXY_HOST, '--port', String(PROXY_PORT)], {
+  const child = spawn(exe, ['--config', generated.path, '--host', PROXY_HOST, '--port', String(PROXY_PORT)], {
     detached: true,
     stdio: 'ignore',
-    env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' },
+    env: childEnv,
   });
   child.unref();
   for (let i = 0; i < 20; i += 1) {
     await delay(1000);
-    if (await proxyRunning()) return true;
+    if (await proxyRunning()) {
+      writeConfigMarker();
+      return true;
+    }
   }
   console.error('Proxy LiteLLM sans reponse apres 20s.');
   return false;
+}
+
+/** Stop the running proxy, wait for the port to free, then start it fresh. */
+export async function restartProxy(): Promise<boolean> {
+  stopProxy();
+  for (let i = 0; i < 10; i += 1) {
+    if (!(await proxyRunning())) break;
+    await delay(300);
+  }
+  return startProxy();
 }
 
 export function stopProxy(): void {
@@ -120,6 +154,14 @@ export function stopProxy(): void {
 /** Ensure the gateway is up for LiteLLM-backed providers; no-op for the others. */
 export async function ensureProxyForProvider(type: ProviderType): Promise<boolean> {
   if (type !== 'litellm') return true;
-  if (await proxyRunning()) return true;
+  // Refresh the on-disk config from the catalog + present keys before comparing,
+  // so a key added/removed since boot is reflected in the hash check.
+  writeLitellmConfig();
+  if (await proxyRunning()) {
+    // A live proxy started with a stale config keeps serving old params
+    // (e.g. output_config not dropped -> Groq 400). Restart it on mismatch.
+    if (proxyConfigMatches()) return true;
+    return restartProxy();
+  }
   return startProxy();
 }
