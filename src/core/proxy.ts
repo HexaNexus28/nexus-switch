@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { Socket } from 'node:net';
 import { join } from 'node:path';
 import type { ProviderType } from '../types/provider.types.js';
@@ -69,12 +69,33 @@ export function proxyRunning(): Promise<boolean> {
   });
 }
 
+/**
+ * Python's console-script dirs (sys + user). A `pip --user` install on Windows
+ * drops litellm.exe in %APPDATA%\Python\Scripts, which is usually NOT on PATH —
+ * so `where litellm` misses it and nexus would wrongly conclude LiteLLM is
+ * absent right after installing it. Ask Python where its scripts actually live.
+ */
+function pythonScriptDirs(): string[] {
+  const code = "import sysconfig,site,os;print(sysconfig.get_path('scripts'));print(os.path.join(site.getuserbase(),'Scripts'))";
+  const result = spawnSync('python', ['-c', code], { encoding: 'utf8' });
+  if (result.status !== 0 || !result.stdout) return [];
+  return result.stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+}
+
+/** Full path to the litellm CLI: PATH first, then Python's (possibly off-PATH) script dirs. */
 function litellmExe(): string | null {
   const probe = process.platform === 'win32' ? 'where' : 'which';
-  const result = spawnSync(probe, ['litellm'], { encoding: 'utf8' });
-  if (result.status !== 0) return null;
-  const first = result.stdout.split(/\r?\n/).find(Boolean);
-  return first ? first.trim() : null;
+  const onPath = spawnSync(probe, ['litellm'], { encoding: 'utf8' });
+  if (onPath.status === 0) {
+    const first = onPath.stdout.split(/\r?\n/).find(Boolean);
+    if (first) return first.trim();
+  }
+  const exe = process.platform === 'win32' ? 'litellm.exe' : 'litellm';
+  for (const dir of pythonScriptDirs()) {
+    const candidate = join(dir, exe);
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
 }
 
 /** Is the litellm CLI on PATH? Only the LiteLLM-backed providers need it. */

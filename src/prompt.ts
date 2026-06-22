@@ -140,5 +140,7 @@ export async function ensureLitellm(): Promise<boolean> {
     return false;
   }
   spawnSync(pip.cmd, [...pip.prefix, 'install', 'litellm[proxy]'], { stdio: 'inherit' });
-  return litellmExists();
+  if (litellmExists()) return true;
+  console.error('LiteLLM installe mais introuvable. Ajoute le dossier Scripts de Python au PATH, puis relance nexus.');
+  return false;
 }
