@@ -12,7 +12,6 @@ export const KEY_VARS: Readonly<Record<string, string>> = {
   cerebras: 'CEREBRAS_API_KEY',
   mistral: 'MISTRAL_API_KEY',
   nvidia: 'NVIDIA_NIM_API_KEY',
-  cloudflare: 'CLOUDFLARE_API_TOKEN',
 };
 
 export function keyVarFor(provider: string): string | undefined {

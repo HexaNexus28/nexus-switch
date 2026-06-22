@@ -42,6 +42,10 @@ export function refreshOllama(): { models: number } {
     .map((line) => line.trim().split(/\s+/)[0])
     .filter((id): id is string => id != null && id.length > 0 && !/embed/i.test(id));
 
+  // No usable model on the machine: never write an empty model_list — that would
+  // make loadProvider('ollama') throw "no models" and brick the whole TUI.
+  if (ids.length === 0) throw new Error('aucun modele Ollama lancable (catalogue inchange)');
+
   const file = providersPath('ollama');
   const provider = JSON.parse(readFileSync(file, 'utf8')) as Provider;
   const known = new Map(provider.models.map((m) => [m.id, m]));

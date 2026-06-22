@@ -4,7 +4,7 @@
   "default": "gemini/gemini-2.5-flash",
   "setup": "claude-set-key gemini [key]",
   "env": {
-    "ANTHROPIC_BASE_URL": "http://localhost:4000",
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:4000",
     "ANTHROPIC_AUTH_TOKEN": "${NEXUS_PROXY_KEY}",
     "ANTHROPIC_API_KEY": ""
   },
