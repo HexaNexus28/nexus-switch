@@ -1,7 +1,9 @@
 # Providers
 
-Keys are persisted with `nexus key set <provider> <key>` — on Windows as a User
-environment variable, on macOS/Linux as an `export` line in your shell rc.
+Keys are persisted with `nexus key set <provider> <key>` into a per-user store at
+`~/.nexus-switch/` — DPAPI-encrypted on Windows (fallback owner-only file), and a
+`0600` file on macOS/Linux. They never become global environment variables and are
+injected only into the launched `claude` (or the LiteLLM gateway) process.
 
 ## Direct providers
 

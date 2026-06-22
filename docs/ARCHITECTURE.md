@@ -5,8 +5,8 @@ It runs anywhere the `claude` CLI runs (Windows, macOS, Linux) as a single
 Node/TypeScript codebase. The terminal UI is rendered with Ink (React for the
 terminal) — it stays a keyboard-driven TUI, not a web app.
 
-> Target architecture for `1.0.0`. The `0.2.x` line is the legacy PowerShell
-> implementation being replaced. See [Migration](#migration-from-02x).
+> Current architecture (`1.1.x`). The `0.2.x` line is the legacy PowerShell
+> implementation it replaced. See [Migration](#migration-from-02x).
 
 ## Runtime flow
 
@@ -14,7 +14,8 @@ terminal) — it stays a keyboard-driven TUI, not a web app.
 User terminal
   -> nexus (Ink TUI)            interactive provider/model selection
   -> core/providers            load + validate providers/*.json
-  -> core/env                  set ANTHROPIC_* on the process
+  -> core/secrets              resolve provider key + proxy master key from the store
+  -> core/env                  reset, then set ANTHROPIC_* on the process
   -> core/launch               spawn claude (or `ollama launch claude`)
 ```
 
@@ -47,13 +48,15 @@ nexus
 ```text
 src/
   core/
-    providers.ts   load + validate providers/*.json (typed)
-    env.ts         apply ANTHROPIC_* to the current process before launch
-    launch.ts      spawn claude / ollama; pre-flight ensures claude exists
-    catalog.ts     refresh model lists live from provider APIs
-    doctor.ts      diagnostics + provider key validation
-  platform/
-    persist.ts     OS-specific key persistence (the only platform-specific code)
+    providers.ts        load + validate providers/*.json (typed)
+    secrets.ts          per-user secret store (~/.nexus-switch); DPAPI/plaintext; legacy-env migration
+    keys.ts             provider -> secret name map; reads/writes via the store
+    env.ts              reset + resolve ANTHROPIC_* template and model rules before launch
+    launch.ts           unified pipeline: reset env, branch ollama/claude, spawn
+    proxy.ts            LiteLLM gateway lifecycle; secrets injected only into the child
+    litellm-config.ts   generate the gateway YAML from providers + present keys
+    catalog.ts          refresh model lists live from provider APIs
+    doctor.ts           diagnostics + provider key validation
   ui/
     App.tsx        Ink TUI root
     ProviderList.tsx
@@ -61,20 +64,23 @@ src/
   types/
     provider.types.ts
 bin/nexus.js       entrypoint (boots Ink for the bare `nexus` command)
-providers/*.json   provider + model catalog (unchanged)
-litellm/           optional local gateway config (unchanged)
+providers/*.json   provider + model catalog (single source of truth)
 ```
 
-## Platform abstraction
+## Secret storage
 
-The only code that branches on OS is `platform/persist.ts` — where provider
-keys are stored. Everything else (provider loading, routing, doctor, catalog,
-launch) is portable as-is.
+Provider keys and the proxy master key live in a per-user store at
+`~/.nexus-switch/` — never in global environment variables, never in the repo.
+They are injected **only** into the spawned child (the `claude` process, or the
+LiteLLM gateway), so no other process inherits them.
 
 ```text
-win32        -> User environment variable (registry), persists across terminals
-darwin/linux -> export line appended to the detected shell rc (~/.zshrc, ~/.bashrc, fish)
+win32        -> DPAPI (CurrentUser) encrypted blob; fallback plaintext + owner-only ACL (icacls)
+darwin/linux -> plaintext file, chmod 0600, inside a 0700 directory
 ```
+
+On first run, any key still in a legacy global env var (pre-1.1 users) is
+migrated into the store and purged from the environment — transparently.
 
 ## Command surface
 
@@ -103,15 +109,15 @@ functions become subcommands, so there is zero profile pollution on any OS.
 - No global `settings.local.json` routing state.
 - No shell profile injection — `nexus` is a self-contained bin.
 - Provider/model catalog lives in `providers/*.json`; refreshable via `nexus refresh`.
-- Secrets live in OS-native storage (env var on Windows, shell rc on Unix), never in the repo.
-- LiteLLM is an optional local gateway, not bundled.
+- Secrets live in a per-user store (`~/.nexus-switch`, DPAPI/0600), injected only into the child — never global env, never in the repo.
+- LiteLLM is an optional local gateway, not bundled; its config is generated from the provider JSONs + present keys (no committed YAML).
+- The LiteLLM gateway is locked with an auto-generated master key (`NEXUS_PROXY_KEY`); it is not a provider credential.
 - TypeScript strict; provider types in `src/types/`.
 
 ## Extension points
 
-- Add a provider JSON file.
-- Add matching LiteLLM entries if provider type is `litellm`.
-- Add a key mapping in `core/providers` if a new secret variable is needed.
+- Add a provider JSON file (LiteLLM gateway entries are generated from it automatically).
+- Add a key mapping in `core/keys` (`KEY_VARS`) if a new secret variable is needed.
 
 ## Migration from 0.2.x
 

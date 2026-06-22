@@ -8,7 +8,7 @@ Nexus Switch does **not** replace or redistribute Claude Code. It configures the
 current terminal environment, optionally starts a local LiteLLM proxy, then
 launches the installed `claude` CLI with the selected provider/model.
 
-> **Status:** `1.0.0` (Node/TS) is the cross-platform rewrite. The published
+> **Status:** `1.1.x` (Node/TS) is the cross-platform rewrite. The published
 > `0.2.x` line is the legacy Windows-only PowerShell implementation. See
 > [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#migration-from-02x).
 
