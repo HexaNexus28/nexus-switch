@@ -2,15 +2,16 @@
   "type": "litellm",
   "name": "NVIDIA NIM (via LiteLLM)",
   "default": "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b",
-  "setup": "claude-set-key nvidia [key]",
+  "setup": "nexus key set nvidia <cle> (build.nvidia.com). Tier gratuit ~40 req/min + 1000 credits a l'inscription. Catalogue rendu en JS : ids best-effort, a verifier sur build.nvidia.com/models.",
   "env": {
     "ANTHROPIC_BASE_URL": "http://127.0.0.1:4000",
     "ANTHROPIC_AUTH_TOKEN": "${NEXUS_PROXY_KEY}",
     "ANTHROPIC_API_KEY": ""
   },
   "models": [
-    { "id": "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b", "name": "Nemotron 3 Ultra", "free": true, "note": "agentic" },
-    { "id": "nvidia_nim/nvidia/nemotron-3-super-120b-a12b", "name": "Nemotron 3 Super", "free": true, "note": "agentic" },
-    { "id": "nvidia_nim/deepseek-ai/deepseek-v3.2", "name": "DeepSeek V3.2", "free": true, "note": "reasoning/coding" }
+    { "id": "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b", "name": "Nemotron 3 Ultra 550B", "free": true, "location": "cloud", "context": 1000000, "price_in": null, "price_out": null, "note": "reasoning haut debit + workflows agentiques longs, 1M ctx, tools" },
+    { "id": "nvidia_nim/nvidia/nemotron-3-super-120b-a12b", "name": "Nemotron 3 Super 120B", "free": true, "location": "cloud", "context": null, "price_in": null, "price_out": null, "note": "flagship entreprise, function calling confirme" },
+    { "id": "nvidia_nim/deepseek-ai/deepseek-v4", "name": "DeepSeek V4", "free": true, "location": "cloud", "context": 1000000, "price_in": null, "price_out": null, "note": "MoE coding, 1M ctx — id best-effort, a verifier" },
+    { "id": "nvidia_nim/deepseek-ai/deepseek-v4-flash", "name": "DeepSeek V4 Flash", "free": true, "location": "cloud", "context": 1000000, "price_in": null, "price_out": null, "note": "284B/13B actifs, coding/agents rapides, 1M ctx — id best-effort, a verifier" }
   ]
 }

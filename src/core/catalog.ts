@@ -54,7 +54,15 @@ export function refreshOllama(): { models: number } {
     const existing = known.get(id);
     if (existing) return existing;
     const cloud = id.endsWith(':cloud');
-    return { id, name: id, free: !cloud, ram_gb: null, note: cloud ? 'cloud' : 'local' };
+    return {
+      id,
+      name: id,
+      free: true, // local = gratuit ; cloud Ollama = tier gratuit avec quota
+      location: cloud ? 'cloud' : 'local',
+      ram_gb: null,
+      disk_gb: null,
+      note: cloud ? 'cloud (quota gratuit, signin requis)' : 'local',
+    };
   });
 
   if (!provider.models.some((m) => m.id === provider.default) && provider.models[0]) {

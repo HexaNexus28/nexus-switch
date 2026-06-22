@@ -2,49 +2,141 @@
   "type": "ollama",
   "name": "Ollama",
   "default": "qwen3.5:cloud",
-  "setup": "Modeles :cloud -> connecte-toi : ollama signin (compte gratuit + quota). Modeles locaux -> ollama pull <id>. Source : docs.ollama.com/integrations/claude-code",
+  "setup": "Modeles :cloud -> ollama signin (tier gratuit: quota qui reset toutes les 5h + hebdo, 1 modele concurrent ; Pro 20$/mois, Max 100$/mois). Modeles locaux -> ollama pull <id>. Source : ollama.com/search, ollama.com/pricing",
   "models": [
     {
-      "id": "kimi-k2.5:cloud",
-      "name": "Kimi K2.5 Cloud",
-      "free": false,
-      "ram_gb": null,
-      "note": "cloud, agent — ollama signin requis"
+      "id": "glm-5.2:cloud",
+      "name": "GLM 5.2 Cloud",
+      "free": true,
+      "location": "cloud",
+      "context": null,
+      "note": "cloud, flagship Z.ai taches longues/agentiques — signin requis, quota gratuit"
     },
     {
-      "id": "glm-5:cloud",
-      "name": "GLM 5 Cloud",
-      "free": false,
-      "ram_gb": null,
-      "note": "cloud, reasoning/code — ollama signin requis"
+      "id": "minimax-m3:cloud",
+      "name": "MiniMax M3 Cloud",
+      "free": true,
+      "location": "cloud",
+      "context": 1000000,
+      "note": "cloud, coding/agentique frontier, contexte 1M — signin requis, quota gratuit"
     },
     {
-      "id": "minimax-m2.7:cloud",
-      "name": "MiniMax M2.7 Cloud",
-      "free": false,
-      "ram_gb": null,
-      "note": "cloud, productivite — ollama signin requis"
+      "id": "deepseek-v4-pro:cloud",
+      "name": "DeepSeek V4 Pro Cloud",
+      "free": true,
+      "location": "cloud",
+      "context": 1000000,
+      "note": "cloud, MoE frontier 3 modes de reasoning — signin requis, quota gratuit"
+    },
+    {
+      "id": "deepseek-v4-flash:cloud",
+      "name": "DeepSeek V4 Flash Cloud",
+      "free": true,
+      "location": "cloud",
+      "context": 1000000,
+      "note": "cloud, 284B/13B actifs, coding/agents rapides, 1M ctx — signin requis, quota gratuit"
+    },
+    {
+      "id": "kimi-k2.7-code:cloud",
+      "name": "Kimi K2.7 Code Cloud",
+      "free": true,
+      "location": "cloud",
+      "context": null,
+      "note": "cloud, modele coding Moonshot avec vision — signin requis, quota gratuit"
+    },
+    {
+      "id": "qwen3-coder:480b-cloud",
+      "name": "Qwen3 Coder 480B Cloud",
+      "free": true,
+      "location": "cloud",
+      "context": 256000,
+      "note": "cloud, coding specialiste 480B, 256K ctx (jusqu'a 1M) — signin requis, quota gratuit"
     },
     {
       "id": "qwen3.5:cloud",
       "name": "Qwen3.5 Cloud",
-      "free": false,
-      "ram_gb": null,
-      "note": "cloud, coding/agent — ollama signin requis"
+      "free": true,
+      "location": "cloud",
+      "context": 256000,
+      "note": "cloud, coding/agent polyvalent — signin requis, quota gratuit"
+    },
+    {
+      "id": "gpt-oss:120b-cloud",
+      "name": "GPT-OSS 120B Cloud",
+      "free": true,
+      "location": "cloud",
+      "context": 128000,
+      "note": "cloud, reasoning OpenAI open-weight, tools — signin requis, quota gratuit"
+    },
+    {
+      "id": "qwen3-coder:30b",
+      "name": "Qwen3 Coder 30B (local)",
+      "free": true,
+      "location": "local",
+      "context": 256000,
+      "ram_gb": 24,
+      "disk_gb": 19,
+      "note": "local, coding specialiste MoE 30B-A3B, tools, 256K ctx — RAM mini a contexte modere, OOM possible a 256K"
     },
     {
       "id": "glm-4.7-flash",
       "name": "GLM 4.7 Flash (local)",
       "free": true,
+      "location": "local",
+      "context": 198000,
       "ram_gb": 24,
-      "note": "local gratuit — ~24GB VRAM a 64k contexte (sinon OOM, prefere :cloud)"
+      "disk_gb": 19,
+      "note": "local, MoE 30B-A3B 'plus fort de la classe 30B', 198K ctx (q4_K_M) — necessite Ollama >= 0.14.3"
     },
     {
-      "id": "qwen3.5",
-      "name": "Qwen3.5 (local)",
+      "id": "gpt-oss:20b",
+      "name": "GPT-OSS 20B (local)",
       "free": true,
-      "ram_gb": null,
-      "note": "local gratuit — VRAM elevee a 64k contexte (sinon OOM, prefere :cloud)"
+      "location": "local",
+      "context": 128000,
+      "ram_gb": 18,
+      "disk_gb": 14,
+      "note": "local, reasoning + tools (function calling, structured output), 128K ctx"
+    },
+    {
+      "id": "gpt-oss:120b",
+      "name": "GPT-OSS 120B (local)",
+      "free": true,
+      "location": "local",
+      "context": 128000,
+      "ram_gb": 76,
+      "disk_gb": 65,
+      "note": "local, reasoning lourd + tools — necessite ~76GB RAM/VRAM, machines costaudes uniquement"
+    },
+    {
+      "id": "gemma4:26b",
+      "name": "Gemma 4 26B (local)",
+      "free": true,
+      "location": "local",
+      "context": null,
+      "ram_gb": 22,
+      "disk_gb": 18,
+      "note": "local, MoE 25.2B/3.8B actifs (efficace), tools, multimodal"
+    },
+    {
+      "id": "granite4.1:8b",
+      "name": "Granite 4.1 8B (local)",
+      "free": true,
+      "location": "local",
+      "context": 128000,
+      "ram_gb": 8,
+      "disk_gb": 5,
+      "note": "local leger, tool use, 128K ctx — tourne sur machine modeste"
+    },
+    {
+      "id": "qwen3.5:9b",
+      "name": "Qwen3.5 9B (local)",
+      "free": true,
+      "location": "local",
+      "context": 256000,
+      "ram_gb": 10,
+      "disk_gb": 7,
+      "note": "local leger, 256K ctx — bon rapport taille/contexte"
     }
   ]
 }

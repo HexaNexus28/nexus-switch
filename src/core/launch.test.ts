@@ -36,14 +36,14 @@ const ollama = (): Provider => ({
   type: 'ollama',
   name: 'Ollama',
   default: 'llama3',
-  models: [{ id: 'llama3', name: 'Llama 3', free: true }],
+  models: [{ id: 'llama3', name: 'Llama 3', free: true, location: 'local' }],
 });
 
 const openrouter = (): Provider => ({
   type: 'openrouter',
   name: 'OpenRouter',
   default: 'openrouter/owl-alpha',
-  models: [{ id: 'openrouter/owl-alpha', name: 'Owl', free: true }],
+  models: [{ id: 'openrouter/owl-alpha', name: 'Owl', free: true, location: 'cloud' }],
   env: {
     ANTHROPIC_BASE_URL: 'https://openrouter.ai/api',
     ANTHROPIC_AUTH_TOKEN: '${OPENROUTER_API_KEY}',
