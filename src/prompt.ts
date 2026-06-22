@@ -1,5 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
+import type { Provider } from './types/provider.types.js';
+import { keyVarFor, readKey, setKey } from './core/keys.js';
 import { claudeExists } from './core/launch.js';
 import { litellmExists } from './core/proxy.js';
 
@@ -83,6 +85,35 @@ export async function ensureOllamaModel(model: string): Promise<boolean> {
     console.error(`Echec du pull de '${model}'.`);
     return false;
   }
+  return true;
+}
+
+/**
+ * Ensure the provider's API key is in the store before launch — the cloud
+ * analogue of `ensureOllamaModel`'s auto-pull. Providers that need no
+ * nexus-managed key (Ollama, native Anthropic) pass through. If the key is
+ * missing, prompt for it on a TTY and persist it (same as `nexus key set`);
+ * otherwise print the manual command. Stops a launch from 401-ing on an empty
+ * ANTHROPIC_AUTH_TOKEN, or a LiteLLM proxy booting with no route.
+ */
+export async function ensureProviderKey(provider: Provider): Promise<boolean> {
+  const varName = provider.id ? keyVarFor(provider.id) : undefined;
+  if (!varName) return true; // ollama / anthropic-native: no nexus-managed key
+  if (readKey(varName)) return true;
+  console.error(`Cle API absente pour ${provider.id} (${varName}).`);
+  if (!process.stdin.isTTY) {
+    console.error(`Configure-la : nexus key set ${provider.id} <cle>`);
+    return false;
+  }
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const answer = (await rl.question(`Colle ta cle ${provider.id} maintenant (Entree pour annuler) : `)).trim();
+  rl.close();
+  if (!answer) {
+    console.error(`Abandon. Configure-la : nexus key set ${provider.id} <cle>`);
+    return false;
+  }
+  setKey(varName, answer);
+  console.error(`${varName} enregistree dans ~/.nexus-switch.`);
   return true;
 }
 

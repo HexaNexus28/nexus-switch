@@ -2,7 +2,7 @@ import { render } from 'ink';
 import { loadAllProviders } from '../core/providers.js';
 import { launch } from '../core/launch.js';
 import { ensureProxyForProvider } from '../core/proxy.js';
-import { ensureClaude, ensureLitellm, ensureOllamaModel } from '../prompt.js';
+import { ensureClaude, ensureLitellm, ensureOllamaModel, ensureProviderKey } from '../prompt.js';
 import { App, type Choice } from './App.js';
 
 /**
@@ -44,6 +44,10 @@ export async function runTui(): Promise<void> {
 
   if (!choice) return;
   if (!(await ensureClaude())) {
+    process.exitCode = 1;
+    return;
+  }
+  if (!(await ensureProviderKey(choice.provider))) {
     process.exitCode = 1;
     return;
   }

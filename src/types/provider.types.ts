@@ -21,6 +21,8 @@ export interface ProviderEnv {
 
 /** A provider catalog file. */
 export interface Provider {
+  /** Catalog key = the JSON file name (e.g. "groq"); set by loadProvider. */
+  id?: string;
   type: ProviderType;
   name: string;
   default: string;

@@ -30,7 +30,9 @@ function validate(name: string, data: unknown): Provider {
 }
 
 export function loadProvider(name: string): Provider {
-  return validate(name, JSON.parse(readFileSync(providersPath(name), 'utf8')));
+  const provider = validate(name, JSON.parse(readFileSync(providersPath(name), 'utf8')));
+  provider.id = name; // catalog key, used to resolve the provider's API key var
+  return provider;
 }
 
 export function listProviders(): string[] {
