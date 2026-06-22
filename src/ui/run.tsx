@@ -21,27 +21,29 @@ function restoreStdin(): void {
 export async function runTui(): Promise<void> {
   const providers = loadAllProviders();
 
-  const choice = await new Promise<Choice | null>((resolve) => {
-    const { unmount } = render(
-      <App
-        providers={providers}
-        onChoose={(c) => {
-          unmount();
-          resolve(c);
-        }}
-        onQuit={() => {
-          unmount();
-          resolve(null);
-        }}
-      />,
-    );
-  });
-  // unmount() ran synchronously before resolve, so Ink has restored the
-  // terminal here. Re-assert a clean interactive stdin before handing it to
-  // the child; spawning with a half-rendered stdin makes claude / ollama fall
-  // back to non-interactive --print mode -> instant exit, no UI.
+  const picked: { choice: Choice | null } = { choice: null };
+  let app: ReturnType<typeof render>;
+  app = render(
+    <App
+      providers={providers}
+      onChoose={(c) => {
+        picked.choice = c;
+        app.unmount();
+      }}
+      onQuit={() => {
+        app.unmount();
+      }}
+    />,
+  );
+  // Barrier: wait until Ink has FULLY torn down (terminal restored, its stdin
+  // input listeners removed) before any readline prompt or child spawn.
+  // Resolving on unmount() alone left stdin half-owned by Ink, so the
+  // dependency [o/N] install prompt (e.g. LiteLLM) never received the keypress
+  // and hung. waitUntilExit() resolves only after teardown completes.
+  await app.waitUntilExit();
   restoreStdin();
 
+  const { choice } = picked;
   if (!choice) return;
   if (!(await ensureClaude())) {
     process.exitCode = 1;
