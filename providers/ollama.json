@@ -2,69 +2,49 @@
   "type": "ollama",
   "name": "Ollama",
   "default": "qwen3.5:cloud",
+  "setup": "Modeles :cloud -> connecte-toi : ollama signin (compte gratuit + quota). Modeles locaux -> ollama pull <id>. Source : docs.ollama.com/integrations/claude-code",
   "models": [
     {
-      "id": "qwen3.5:cloud",
-      "name": "Qwen3.5 Cloud",
+      "id": "kimi-k2.5:cloud",
+      "name": "Kimi K2.5 Cloud",
       "free": false,
       "ram_gb": null,
-      "note": "cloud, coding/agent"
-    },
-    {
-      "id": "qwen3-coder:480b-cloud",
-      "name": "Qwen3 Coder 480B Cloud",
-      "free": false,
-      "ram_gb": null,
-      "note": "cloud, coding lourd"
+      "note": "cloud, agent — ollama signin requis"
     },
     {
       "id": "glm-5:cloud",
       "name": "GLM 5 Cloud",
       "free": false,
       "ram_gb": null,
-      "note": "cloud, reasoning/code"
+      "note": "cloud, reasoning/code — ollama signin requis"
     },
     {
-      "id": "kimi-k2.5:cloud",
-      "name": "Kimi K2.5 Cloud",
+      "id": "minimax-m2.7:cloud",
+      "name": "MiniMax M2.7 Cloud",
       "free": false,
       "ram_gb": null,
-      "note": "cloud, agent"
+      "note": "cloud, productivite — ollama signin requis"
     },
     {
-      "id": "minimax-m2.5:cloud",
-      "name": "MiniMax M2.5 Cloud",
+      "id": "qwen3.5:cloud",
+      "name": "Qwen3.5 Cloud",
       "free": false,
       "ram_gb": null,
-      "note": "cloud, productivite"
+      "note": "cloud, coding/agent — ollama signin requis"
     },
     {
-      "id": "llama3.2:3b",
-      "name": "Llama 3.2 3B",
+      "id": "glm-4.7-flash",
+      "name": "GLM 4.7 Flash (local)",
       "free": true,
-      "ram_gb": 3,
-      "note": "local, leger"
+      "ram_gb": null,
+      "note": "local gratuit, rapide — ollama pull glm-4.7-flash"
     },
     {
-      "id": "deepseek-v3.2:cloud",
-      "name": "DeepSeek V3.2 Cloud",
-      "free": false,
+      "id": "qwen3.5",
+      "name": "Qwen3.5 (local)",
+      "free": true,
       "ram_gb": null,
-      "note": "cloud, reasoning"
-    },
-    {
-      "id": "deepseek-v4-pro:cloud",
-      "name": "DeepSeek V4 Pro Cloud",
-      "free": false,
-      "ram_gb": null,
-      "note": "cloud, reasoning fort"
-    },
-    {
-      "id": "deepseek-v4-flash:cloud",
-      "name": "DeepSeek V4 Flash Cloud",
-      "free": false,
-      "ram_gb": null,
-      "note": "cloud, rapide"
+      "note": "local gratuit, coding/agent — ollama pull qwen3.5"
     }
   ]
 }

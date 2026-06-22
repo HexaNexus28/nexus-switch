@@ -15,6 +15,10 @@ export function launch(provider: Provider, model: string, rest: string[]): void 
   // otherwise hijack the launched claude.
   resetProviderEnv();
   if (provider.type === 'ollama') {
+    // Cloud models route through Ollama's hosted backend, which needs a (free) account.
+    if (model.endsWith(':cloud')) {
+      console.error("Modele Ollama cloud : si ce n'est pas deja fait, connecte-toi avec `ollama signin` (compte gratuit + quota).");
+    }
     const args = ['launch', 'claude', '--model', model, ...(rest.length ? ['--', ...rest] : [])];
     const result = spawnSync('ollama', args, { stdio: 'inherit' });
     if (result.error) {
