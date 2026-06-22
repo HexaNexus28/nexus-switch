@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
 import type { Provider } from './types/provider.types.js';
 import { keyVarFor, readKey, setKey } from './core/keys.js';
-import { claudeExists } from './core/launch.js';
+import { claudeExists, runNpm } from './core/launch.js';
 import { litellmExists } from './core/proxy.js';
 
 /** Resolve how to invoke pip, or null if neither `pip` nor `python -m pip` is available. */
@@ -34,7 +34,7 @@ export async function ensureClaude(): Promise<boolean> {
     console.error('Abandon. Install manuelle : npm i -g @anthropic-ai/claude-code');
     return false;
   }
-  spawnSync('npm', ['i', '-g', '@anthropic-ai/claude-code'], { stdio: 'inherit' });
+  runNpm(['i', '-g', '@anthropic-ai/claude-code']);
   return claudeExists();
 }
 
@@ -89,6 +89,9 @@ export async function ensureOllamaModel(model: string): Promise<boolean> {
 }
 
 /**
+ * 
+ * 
+ * 
  * Ensure the provider's API key is in the store before launch — the cloud
  * analogue of `ensureOllamaModel`'s auto-pull. Providers that need no
  * nexus-managed key (Ollama, native Anthropic) pass through. If the key is

@@ -1,9 +1,8 @@
-import { spawnSync } from 'node:child_process';
 import { refreshOllama, refreshOpenRouter } from './core/catalog.js';
 import { litellmKeyStatus, openRouterCredits } from './core/credits.js';
 import { runDoctor } from './core/doctor.js';
 import { KEY_VARS, keyVarFor, readKey, setKey } from './core/keys.js';
-import { launch } from './core/launch.js';
+import { launch, runNpm } from './core/launch.js';
 import { listProviders, loadProvider } from './core/providers.js';
 import { ensureProxyForProvider, restartProxy, startProxy, stopProxy } from './core/proxy.js';
 import { migrateLegacyEnv, purgeLegacyEnv, wipeSecretStore } from './core/secrets.js';
@@ -123,7 +122,7 @@ async function cmdCredits(): Promise<void> {
 }
 
 function cmdUpdate(): void {
-  spawnSync('npm', ['i', '-g', '@hexanexus/nexus-switch@latest'], { stdio: 'inherit' });
+  runNpm(['i', '-g', '@hexanexus/nexus-switch@latest']);
 }
 
 function cmdUninstall(): void {
@@ -133,7 +132,7 @@ function cmdUninstall(): void {
   wipeSecretStore();
   for (const varName of [...Object.values(KEY_VARS), 'NEXUS_PROXY_KEY']) purgeLegacyEnv(varName);
   console.log('Secrets et config supprimes (~/.nexus-switch + env global purge).');
-  spawnSync('npm', ['rm', '-g', '@hexanexus/nexus-switch'], { stdio: 'inherit' });
+  runNpm(['rm', '-g', '@hexanexus/nexus-switch']);
 }
 
 function cmdHelp(): void {

@@ -8,6 +8,20 @@ export function claudeExists(): boolean {
   return spawnSync(probe, ['claude'], { stdio: 'ignore' }).status === 0;
 }
 
+/**
+ * Run `npm <args>` inheriting the terminal. On Windows `npm` is a `.cmd` shim
+ * that Node 20+ refuses to spawn directly (EINVAL / ENOENT), so the global
+ * install/update/uninstall silently failed after the user accepted the prompt.
+ * Routing through cmd.exe (a real executable) makes it actually run.
+ */
+export function runNpm(args: string[]): void {
+  if (process.platform === 'win32') {
+    spawnSync('cmd', ['/c', 'npm', ...args], { stdio: 'inherit' });
+  } else {
+    spawnSync('npm', args, { stdio: 'inherit' });
+  }
+}
+
 /** Launch claude for the selected provider/model, inheriting the terminal. */
 export function launch(provider: Provider, model: string, rest: string[]): void {
   // Single pipeline: always wipe stale provider overrides first (delete, never ""),
