@@ -1,27 +1,36 @@
 # Fresh-user simulation — the harshest "I just installed nexus" baseline.
 #
-# Why two stages: node-pty (a devDep used by the PTY test) is a native module.
-# A bare slim image has no toolchain, so installing it there would fail the whole
-# run for the wrong reason. We build everything in the full node:22 image, then
-# copy the result into node:22-slim — which has NO python, pip, claude or litellm
-# — and run the e2e suite there. If anything in the CLI assumes the dev's tooling
-# exists, the suite fails here and the docker build (hence CI) goes red.
+# Why two stages:
+# - Build stage: full node:22 image with python/make/g++ for native deps
+#   (node-pty). Compiles the CLI (dist/) and the e2e tests (dist-e2e/).
+# - Run stage: node:22-slim with NO python, pip, claude or litellm.
+#   npm ci --ignore-scripts avoids re-running `prepare` (tsc) which needs
+#   the source tree. We only copy the pre-built artefacts and run the tests.
 
-# ---- build stage: full image, has python3/make/g++ for native deps ----
+# ---- build stage ----
 FROM node:22 AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-# Compile both the CLI and the e2e tests so the slim stage needs no toolchain.
 RUN npm run build && npx tsc -p tsconfig.e2e.json
 
 # ---- run stage: bare machine, no python on PATH ----
 FROM node:22-slim
 WORKDIR /app
-COPY --from=build /app /app
-# Report the baseline (informational), then run the e2e suite for real. The
-# suite must pass whether or not python happens to exist on the base image.
-RUN sh -c 'command -v python python3 >/dev/null 2>&1 && echo "note: python present on base image" || echo "fresh-user baseline: no python on PATH"'
+
+# Copy only what the e2e suite needs at runtime — no src/, no tsconfig.
+# --ignore-scripts skips `prepare` (tsc) which would fail without the source.
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/dist-e2e ./dist-e2e
+COPY bin ./bin
+COPY providers ./providers
+
+# Sanity: report python availability (informational only — the test must pass
+# whether or not python is on this base image, because the CLI guards it).
+RUN sh -c 'command -v python python3 2>/dev/null && echo "note: python present" || echo "fresh-user: no python on PATH"'
+
 RUN node --test "dist-e2e/**/*.e2e.js"
 CMD ["node", "bin/nexus.js", "help"]
