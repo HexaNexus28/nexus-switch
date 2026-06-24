@@ -5,12 +5,23 @@ import { keyVarFor, readKey, setKey } from './core/keys.js';
 import { claudeExists, runNpm } from './core/launch.js';
 import { litellmExists } from './core/proxy.js';
 
-/** Resolve how to invoke pip, or null if neither `pip` nor `python -m pip` is available. */
+/**
+ * Resolve how to invoke pip, or null if no interpreter exposes it. Don't assume
+ * `python` is on PATH: a fresh Windows box often has only the `py` launcher, or
+ * exposes `python3`. Try `pip` directly, then `<interpreter> -m pip`.
+ */
 function pipCommand(): { cmd: string; prefix: string[] } | null {
   const probe = process.platform === 'win32' ? 'where' : 'which';
   if (spawnSync(probe, ['pip'], { stdio: 'ignore' }).status === 0) return { cmd: 'pip', prefix: [] };
-  if (spawnSync('python', ['-m', 'pip', '--version'], { stdio: 'ignore' }).status === 0) {
-    return { cmd: 'python', prefix: ['-m', 'pip'] };
+  const candidates: ReadonlyArray<{ cmd: string; prefix: string[] }> = [
+    { cmd: 'python', prefix: ['-m', 'pip'] },
+    { cmd: 'python3', prefix: ['-m', 'pip'] },
+    { cmd: 'py', prefix: ['-3', '-m', 'pip'] },
+  ];
+  for (const candidate of candidates) {
+    if (spawnSync(candidate.cmd, [...candidate.prefix, '--version'], { stdio: 'ignore' }).status === 0) {
+      return candidate;
+    }
   }
   return null;
 }

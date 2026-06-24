@@ -1,0 +1,51 @@
+name: CI
+
+# Tests run on every push/PR, on both OSes nexus targets, BEFORE publish.yml can
+# ship a version. The unit suite mocks spawn; the e2e suite drives the real
+# binary against fake tools; the docker job proves a bare machine (no python).
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  unit:
+    name: unit (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
+  e2e:
+    name: e2e (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run test:e2e
+
+  fresh-user:
+    name: fresh-user (bare node, no python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The e2e suite runs inside a node:22-slim stage with no python/pip/claude/
+      # litellm — a build failure here means the CLI assumed dev tooling exists.
+      - run: docker build -f test/docker/Dockerfile .

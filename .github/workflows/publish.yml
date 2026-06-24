@@ -16,6 +16,9 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # Gate: configure "require status checks" in GitHub branch protection rules,
+    # listing the ci.yml jobs (unit, e2e, fresh-user) as required before merge.
+    # That ensures publish never runs on a commit that failed CI.
     steps:
       - uses: actions/checkout@v4
 

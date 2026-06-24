@@ -1,21 +1,9 @@
 import { render } from 'ink';
 import { loadAllProviders } from '../core/providers.js';
-import { launch } from '../core/launch.js';
+import { launch, restoreInteractiveStdin } from '../core/launch.js';
 import { ensureProxyForProvider } from '../core/proxy.js';
 import { ensureClaude, ensureLitellm, ensureOllamaModel, ensureProviderKey } from '../prompt.js';
 import { App, type Choice } from './App.js';
-
-/**
- * Restore stdin to a clean interactive state after Ink released it. The child
- * CLI (claude / ollama launch claude) decides interactive-vs-`--print` from
- * stdin being a real TTY; a half-restored stream makes it fall back to --print,
- * which exits immediately with no UI ("returns to the menu").
- */
-function restoreStdin(): void {
-  const { stdin } = process;
-  if (stdin.isTTY && typeof stdin.setRawMode === 'function') stdin.setRawMode(false);
-  stdin.resume();
-}
 
 /** Render the interactive TUI, then launch the selected provider/model. */
 export async function runTui(): Promise<void> {
@@ -41,7 +29,9 @@ export async function runTui(): Promise<void> {
   // dependency [o/N] install prompt (e.g. LiteLLM) never received the keypress
   // and hung. waitUntilExit() resolves only after teardown completes.
   await app.waitUntilExit();
-  restoreStdin();
+  // Ink released stdin half-owned; restore it so the readline ensure* prompts
+  // below actually receive keypresses (launch() restores it again pre-spawn).
+  restoreInteractiveStdin();
 
   const { choice } = picked;
   if (!choice) return;

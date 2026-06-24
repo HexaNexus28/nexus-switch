@@ -74,12 +74,29 @@ export function proxyRunning(): Promise<boolean> {
  * drops litellm.exe in %APPDATA%\Python\Scripts, which is usually NOT on PATH —
  * so `where litellm` misses it and nexus would wrongly conclude LiteLLM is
  * absent right after installing it. Ask Python where its scripts actually live.
+ *
+ * We don't assume `python` is on PATH: a fresh Windows box may only have the
+ * `py` launcher, or expose `python3`, and pip may have installed under any of
+ * them. Probe every common interpreter and union their script dirs, so the exe
+ * is found whichever one owns it.
  */
 function pythonScriptDirs(): string[] {
   const code = "import sysconfig,site,os;print(sysconfig.get_path('scripts'));print(os.path.join(site.getuserbase(),'Scripts'))";
-  const result = spawnSync('python', ['-c', code], { encoding: 'utf8' });
-  if (result.status !== 0 || !result.stdout) return [];
-  return result.stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const interpreters: ReadonlyArray<readonly [string, string[]]> = [
+    ['python', ['-c', code]],
+    ['python3', ['-c', code]],
+    ['py', ['-3', '-c', code]],
+  ];
+  const dirs = new Set<string>();
+  for (const [cmd, args] of interpreters) {
+    const result = spawnSync(cmd, args, { encoding: 'utf8' });
+    if (result.status !== 0 || !result.stdout) continue;
+    for (const line of result.stdout.split(/\r?\n/)) {
+      const dir = line.trim();
+      if (dir) dirs.add(dir);
+    }
+  }
+  return [...dirs];
 }
 
 /** Full path to the litellm CLI: PATH first, then Python's (possibly off-PATH) script dirs. */

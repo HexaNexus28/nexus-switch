@@ -9,6 +9,23 @@ export function claudeExists(): boolean {
 }
 
 /**
+ * Hand the child a clean interactive terminal. The readline prompts (key /
+ * litellm install) and the inherited `pip install` subprocess leave stdin
+ * paused and possibly in raw mode; claude then detects a non-interactive stdin,
+ * falls back to `--print`, and exits immediately ("returns to the shell"). Reset
+ * stdin right before inheriting it so the child gets a real interactive TTY.
+ */
+export function restoreInteractiveStdin(): void {
+  const { stdin } = process;
+  // Only act on a real interactive terminal. A non-TTY stdin (piped tests,
+  // non-interactive CI) must not be resumed — that keeps the event loop alive
+  // and the process never exits.
+  if (!stdin.isTTY) return;
+  if (typeof stdin.setRawMode === 'function') stdin.setRawMode(false);
+  stdin.resume();
+}
+
+/**
  * Run `npm <args>` inheriting the terminal. On Windows `npm` is a `.cmd` shim
  * that Node 20+ refuses to spawn directly (EINVAL / ENOENT), so the global
  * install/update/uninstall silently failed after the user accepted the prompt.
@@ -28,6 +45,9 @@ export function launch(provider: Provider, model: string, rest: string[]): void 
   // then branch. A leftover gateway BASE_URL from a previous provider would
   // otherwise hijack the launched claude.
   resetProviderEnv();
+  // Any ensure* prompt or the pip install run before this point dirties stdin;
+  // claude/ollama inherit it, so make it a clean interactive TTY first.
+  restoreInteractiveStdin();
   if (provider.type === 'ollama') {
     // Cloud models route through Ollama's hosted backend, which needs a (free) account.
     // Local models load fully into RAM/VRAM; coding tools need a large context
