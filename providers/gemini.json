@@ -2,19 +2,19 @@
   "type": "litellm",
   "name": "Google Gemini (via LiteLLM)",
   "default": "gemini/gemini-2.5-flash",
-  "setup": "nexus key set gemini <cle> (AI Studio). Tier gratuit genereux sur 2.5/3-flash ; tarifs ci-dessous au-dela. Source : ai.google.dev/gemini-api/docs/models + /pricing",
+  "setup": "nexus key set gemini <cle> (aistudio.google.com). Compte Google requis, sans CB. Tier gratuit sur 2.5/3-flash ; tarifs ci-dessous au-dela. Source : ai.google.dev/gemini-api/docs/models + /pricing",
   "env": {
     "ANTHROPIC_BASE_URL": "http://127.0.0.1:4000",
     "ANTHROPIC_AUTH_TOKEN": "${NEXUS_PROXY_KEY}",
     "ANTHROPIC_API_KEY": ""
   },
   "models": [
-    { "id": "gemini/gemini-2.5-pro", "name": "Gemini 2.5 Pro", "free": true, "location": "cloud", "context": 1048576, "price_in": 1.25, "price_out": 10.0, "note": "coding/reasoning complexe, tools, 1M ctx (prix <=200k tokens)" },
-    { "id": "gemini/gemini-2.5-flash", "name": "Gemini 2.5 Flash", "free": true, "location": "cloud", "context": 1048576, "price_in": 0.30, "price_out": 2.50, "note": "rapide, polyvalent, tools, 1M ctx" },
-    { "id": "gemini/gemini-2.5-flash-lite", "name": "Gemini 2.5 Flash Lite", "free": true, "location": "cloud", "context": 1048576, "price_in": 0.10, "price_out": 0.40, "note": "ultra cheap/rapide, tools, 1M ctx" },
-    { "id": "gemini/gemini-3-flash-preview", "name": "Gemini 3 Flash (preview)", "free": true, "location": "cloud", "context": null, "price_in": 0.50, "price_out": 3.00, "note": "preview, intelligence frontier rapide, tools" },
-    { "id": "gemini/gemini-3.1-flash-lite", "name": "Gemini 3.1 Flash Lite", "free": true, "location": "cloud", "context": null, "price_in": 0.25, "price_out": 1.50, "note": "cheap/rapide, tools" },
-    { "id": "gemini/gemini-3.5-flash", "name": "Gemini 3.5 Flash", "free": false, "location": "cloud", "context": null, "price_in": 1.50, "price_out": 9.00, "note": "payant, flash haut de gamme, tools" },
-    { "id": "gemini/gemini-3.1-pro-preview", "name": "Gemini 3.1 Pro (preview)", "free": false, "location": "cloud", "context": null, "price_in": 2.00, "price_out": 12.0, "note": "payant, reasoning de pointe (prix <=200k tokens)" }
+    { "id": "gemini/gemini-2.5-pro", "name": "Gemini 2.5 Pro", "free": true, "signin_required": "google", "location": "cloud", "context": 1048576, "price_in": 1.25, "price_out": 10.0, "note": "coding/reasoning complexe, tools, 1M ctx — compte Google requis, tier gratuit limité" },
+    { "id": "gemini/gemini-2.5-flash", "name": "Gemini 2.5 Flash", "free": true, "signin_required": "google", "location": "cloud", "context": 1048576, "price_in": 0.30, "price_out": 2.50, "note": "rapide, polyvalent, tools, 1M ctx — compte Google requis, tier gratuit généreux" },
+    { "id": "gemini/gemini-2.5-flash-lite", "name": "Gemini 2.5 Flash Lite", "free": true, "signin_required": "google", "location": "cloud", "context": 1048576, "price_in": 0.10, "price_out": 0.40, "note": "ultra cheap/rapide, tools, 1M ctx — compte Google requis" },
+    { "id": "gemini/gemini-3-flash-preview", "name": "Gemini 3 Flash (preview)", "free": true, "signin_required": "google", "location": "cloud", "context": null, "price_in": 0.50, "price_out": 3.00, "note": "preview, intelligence frontier rapide, tools — compte Google requis" },
+    { "id": "gemini/gemini-3.1-flash-lite", "name": "Gemini 3.1 Flash Lite", "free": true, "signin_required": "google", "location": "cloud", "context": null, "price_in": 0.25, "price_out": 1.50, "note": "cheap/rapide, tools — compte Google requis" },
+    { "id": "gemini/gemini-3.5-flash", "name": "Gemini 3.5 Flash", "free": false, "location": "cloud", "context": null, "price_in": 1.50, "price_out": 9.00, "note": "PAYANT — flash haut de gamme, tools" },
+    { "id": "gemini/gemini-3.1-pro-preview", "name": "Gemini 3.1 Pro (preview)", "free": false, "location": "cloud", "context": null, "price_in": 2.00, "price_out": 12.0, "note": "PAYANT — reasoning de pointe (prix <=200k tokens)" }
   ]
 }

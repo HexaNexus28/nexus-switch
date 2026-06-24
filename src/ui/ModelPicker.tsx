@@ -16,7 +16,7 @@ function fmtContext(c?: number | null): string {
   return String(c);
 }
 
-/** Memory column: local -> "RAM/disk GB"; paid cloud -> "$in/out"; free cloud -> "". */
+/** Memory/price column: local -> "RAM/disk GB"; paid cloud -> "$in/out"; free cloud -> "". */
 function fmtSpec(m: ProviderModel): string {
   if (m.location === 'local') {
     const ram = typeof m.ram_gb === 'number' ? String(m.ram_gb) : '?';
@@ -27,6 +27,13 @@ function fmtSpec(m: ProviderModel): string {
     return `$${m.price_in}/${m.price_out ?? '?'}`;
   }
   return '';
+}
+
+/** Badge + color for the free/paid/signin tier. */
+function TierBadge({ m }: { m: ProviderModel }) {
+  if (!m.free) return <Text color="gray">PAYANT </Text>;
+  if (m.signin_required) return <Text color="yellow">COMPTE </Text>;
+  return <Text color="green">GRATUIT</Text>;
 }
 
 export function ModelPicker({ provider, onSelect, onBack }: Props) {
@@ -49,7 +56,7 @@ export function ModelPicker({ provider, onSelect, onBack }: Props) {
       {models.map((m, i) => (
         <Text key={m.id} inverse={i === cursor}>
           {i === cursor ? '▶ ' : '  '}
-          <Text color={m.free ? 'green' : 'gray'}>{m.free ? 'GRATUIT' : 'PAYANT '}</Text>
+          <TierBadge m={m} />
           {'  '}
           <Text color={m.location === 'local' ? 'yellow' : 'blue'}>{m.location.padEnd(5)}</Text>
           {'  '}
@@ -61,6 +68,10 @@ export function ModelPicker({ provider, onSelect, onBack }: Props) {
         </Text>
       ))}
       <Text color="gray">{models[cursor]?.note ?? ''}</Text>
+      <Text color="gray">
+        GRATUIT = sans compte · <Text color="yellow">COMPTE</Text> = gratuit mais inscription requise
+        · PAYANT = facturation
+      </Text>
       <Text color="gray">local = RAM/disque · cloud payant = $in/out par M tokens</Text>
       <Text color="gray">↑↓ naviguer · Entrée lancer · ← retour</Text>
     </Box>

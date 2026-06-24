@@ -3,20 +3,20 @@
   "name": "OpenRouter",
   "default": "openrouter/owl-alpha",
   "credits_api": "https://openrouter.ai/api/v1/credits",
-  "setup": "nexus key set openrouter <cle> (openrouter.ai/keys). Modeles :free = gratuits (rate limits OpenRouter). Liste tools-only filtree via openrouter.ai/api/v1/models.",
+  "setup": "nexus key set openrouter <cle> (openrouter.ai/keys). Compte requis, sans CB. Modeles :free = gratuits avec quota (50 req/jour). Source : openrouter.ai/models",
   "env": {
     "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
     "ANTHROPIC_AUTH_TOKEN": "${OPENROUTER_API_KEY}",
     "ANTHROPIC_API_KEY": ""
   },
   "models": [
-    { "id": "openrouter/owl-alpha", "name": "Owl Alpha", "free": true, "location": "cloud", "context": 1048576, "price_in": 0, "price_out": 0, "note": "compatible Claude Code, agentic, tools, 1M ctx" },
-    { "id": "cohere/north-mini-code:free", "name": "Cohere North Mini Code", "free": true, "location": "cloud", "context": 256000, "price_in": 0, "price_out": 0, "note": "coding agent, tools, 256K ctx" },
-    { "id": "poolside/laguna-m.1:free", "name": "Poolside Laguna M.1", "free": true, "location": "cloud", "context": 262144, "price_in": 0, "price_out": 0, "note": "coding agent, tools" },
-    { "id": "poolside/laguna-xs.2:free", "name": "Poolside Laguna XS.2", "free": true, "location": "cloud", "context": 262144, "price_in": 0, "price_out": 0, "note": "coding agent leger, tools" },
-    { "id": "nex-agi/nex-n2-pro:free", "name": "Nex N2 Pro", "free": true, "location": "cloud", "context": 262144, "price_in": 0, "price_out": 0, "note": "coding, tools, reasoning" },
-    { "id": "nvidia/nemotron-3-ultra-550b-a55b:free", "name": "Nemotron 3 Ultra 550B", "free": true, "location": "cloud", "context": 1000000, "price_in": 0, "price_out": 0, "note": "agentic, tools, 1M ctx" },
-    { "id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", "name": "Nemotron 3 Nano Omni 30B", "free": true, "location": "cloud", "context": 256000, "price_in": 0, "price_out": 0, "note": "reasoning omni-modal leger, tools" },
-    { "id": "anthropic/claude-opus-4.8", "name": "Claude Opus 4.8", "free": false, "location": "cloud", "context": 1000000, "price_in": 5.0, "price_out": 25.0, "note": "payant, Claude natif via OpenRouter (premium)" }
+    { "id": "openrouter/owl-alpha", "name": "Owl Alpha", "free": true, "signin_required": "openrouter", "location": "cloud", "context": 1048576, "price_in": 0, "price_out": 0, "note": "compatible Claude Code, agentic, tools, 1M ctx — compte requis (openrouter.ai), 50 req/jour" },
+    { "id": "cohere/north-mini-code:free", "name": "Cohere North Mini Code", "free": true, "signin_required": "openrouter", "location": "cloud", "context": 256000, "price_in": 0, "price_out": 0, "note": "coding agent, tools, 256K ctx — compte requis, 50 req/jour" },
+    { "id": "poolside/laguna-m.1:free", "name": "Poolside Laguna M.1", "free": true, "signin_required": "openrouter", "location": "cloud", "context": 262144, "price_in": 0, "price_out": 0, "note": "coding agent, tools — compte requis, 50 req/jour" },
+    { "id": "poolside/laguna-xs.2:free", "name": "Poolside Laguna XS.2", "free": true, "signin_required": "openrouter", "location": "cloud", "context": 262144, "price_in": 0, "price_out": 0, "note": "coding agent leger, tools — compte requis, 50 req/jour" },
+    { "id": "nex-agi/nex-n2-pro:free", "name": "Nex N2 Pro", "free": true, "signin_required": "openrouter", "location": "cloud", "context": 262144, "price_in": 0, "price_out": 0, "note": "coding, tools, reasoning — compte requis, 50 req/jour" },
+    { "id": "nvidia/nemotron-3-ultra-550b-a55b:free", "name": "Nemotron 3 Ultra 550B", "free": true, "signin_required": "openrouter", "location": "cloud", "context": 1000000, "price_in": 0, "price_out": 0, "note": "agentic, tools, 1M ctx — compte requis, 50 req/jour" },
+    { "id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", "name": "Nemotron 3 Nano Omni 30B", "free": true, "signin_required": "openrouter", "location": "cloud", "context": 256000, "price_in": 0, "price_out": 0, "note": "reasoning omni-modal leger, tools — compte requis, 50 req/jour" },
+    { "id": "anthropic/claude-opus-4.8", "name": "Claude Opus 4.8", "free": false, "location": "cloud", "context": 1000000, "price_in": 5.0, "price_out": 25.0, "note": "PAYANT — Claude natif via OpenRouter (premium)" }
   ]
 }

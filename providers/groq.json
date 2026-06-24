@@ -2,21 +2,21 @@
   "type": "litellm",
   "name": "Groq (via LiteLLM proxy)",
   "default": "groq/llama-3.3-70b-versatile",
-  "setup": "pip install litellm[proxy] — proxy auto via nexus groq. Tier gratuit Groq (rate limits) ; tarifs ci-dessous au-dela. Source : console.groq.com/docs/models, groq.com/pricing",
+  "setup": "pip install litellm[proxy] — proxy auto via nexus groq. Compte Groq requis (console.groq.com), sans CB. Tier gratuit avec rate limits ; facturation au-dela. Source : console.groq.com/docs/models, groq.com/pricing",
   "env": {
     "ANTHROPIC_BASE_URL": "http://127.0.0.1:4000",
     "ANTHROPIC_AUTH_TOKEN": "${NEXUS_PROXY_KEY}",
     "ANTHROPIC_API_KEY": ""
   },
   "models": [
-    { "id": "groq/llama-3.3-70b-versatile", "name": "Llama 3.3 70B Versatile", "free": true, "location": "cloud", "context": 131072, "price_in": 0.59, "price_out": 0.79, "note": "production, polyvalent, tools" },
-    { "id": "groq/llama-3.1-8b-instant", "name": "Llama 3.1 8B Instant", "free": true, "location": "cloud", "context": 131072, "price_in": 0.05, "price_out": 0.08, "note": "production, ultra rapide/cheap" },
-    { "id": "groq/openai/gpt-oss-120b", "name": "GPT-OSS 120B", "free": true, "location": "cloud", "context": 131072, "price_in": 0.15, "price_out": 0.60, "note": "production, reasoning + tools" },
-    { "id": "groq/openai/gpt-oss-20b", "name": "GPT-OSS 20B", "free": true, "location": "cloud", "context": 131072, "price_in": 0.075, "price_out": 0.30, "note": "production, reasoning rapide" },
-    { "id": "groq/qwen/qwen3-32b", "name": "Qwen3 32B", "free": true, "location": "cloud", "context": 131072, "price_in": 0.29, "price_out": 0.59, "note": "preview, coding/reasoning" },
-    { "id": "groq/qwen/qwen3.6-27b", "name": "Qwen3.6 27B", "free": true, "location": "cloud", "context": 131072, "price_in": null, "price_out": null, "note": "preview, coding/reasoning recent" },
-    { "id": "groq/meta-llama/llama-4-scout-17b-16e-instruct", "name": "Llama 4 Scout 17B", "free": true, "location": "cloud", "context": 131072, "price_in": 0.11, "price_out": 0.34, "note": "preview, MoE multimodal" },
-    { "id": "groq/compound", "name": "Compound (systeme agentic)", "free": true, "location": "cloud", "context": 131072, "price_in": null, "price_out": null, "note": "systeme agentic (web search + code exec), tarif refacture sur modeles sous-jacents" },
-    { "id": "groq/compound-mini", "name": "Compound Mini", "free": true, "location": "cloud", "context": 131072, "price_in": null, "price_out": null, "note": "systeme agentic rapide" }
+    { "id": "groq/llama-3.3-70b-versatile", "name": "Llama 3.3 70B Versatile", "free": true, "signin_required": "groq", "location": "cloud", "context": 131072, "price_in": 0.59, "price_out": 0.79, "note": "production, polyvalent, tools — compte gratuit requis (console.groq.com)" },
+    { "id": "groq/llama-3.1-8b-instant", "name": "Llama 3.1 8B Instant", "free": true, "signin_required": "groq", "location": "cloud", "context": 131072, "price_in": 0.05, "price_out": 0.08, "note": "production, ultra rapide/cheap — compte gratuit requis" },
+    { "id": "groq/openai/gpt-oss-120b", "name": "GPT-OSS 120B", "free": true, "signin_required": "groq", "location": "cloud", "context": 131072, "price_in": 0.15, "price_out": 0.60, "note": "production, reasoning + tools — compte gratuit requis" },
+    { "id": "groq/openai/gpt-oss-20b", "name": "GPT-OSS 20B", "free": true, "signin_required": "groq", "location": "cloud", "context": 131072, "price_in": 0.075, "price_out": 0.30, "note": "production, reasoning rapide — compte gratuit requis" },
+    { "id": "groq/qwen/qwen3-32b", "name": "Qwen3 32B", "free": true, "signin_required": "groq", "location": "cloud", "context": 131072, "price_in": 0.29, "price_out": 0.59, "note": "preview, coding/reasoning — compte gratuit requis" },
+    { "id": "groq/qwen/qwen3.6-27b", "name": "Qwen3.6 27B", "free": true, "signin_required": "groq", "location": "cloud", "context": 131072, "price_in": null, "price_out": null, "note": "preview, coding/reasoning recent — compte gratuit requis" },
+    { "id": "groq/meta-llama/llama-4-scout-17b-16e-instruct", "name": "Llama 4 Scout 17B", "free": true, "signin_required": "groq", "location": "cloud", "context": 131072, "price_in": 0.11, "price_out": 0.34, "note": "preview, MoE multimodal — compte gratuit requis" },
+    { "id": "groq/compound", "name": "Compound (systeme agentic)", "free": true, "signin_required": "groq", "location": "cloud", "context": 131072, "price_in": null, "price_out": null, "note": "systeme agentic (web search + code exec), tarif refacture sur modeles sous-jacents — compte gratuit requis" },
+    { "id": "groq/compound-mini", "name": "Compound Mini", "free": true, "signin_required": "groq", "location": "cloud", "context": 131072, "price_in": null, "price_out": null, "note": "systeme agentic rapide — compte gratuit requis" }
   ]
 }

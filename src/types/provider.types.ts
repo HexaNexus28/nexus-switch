@@ -23,6 +23,12 @@ export interface ProviderModel {
   price_in?: number | null;
   /** Cloud paid: price per 1M output tokens, USD. null/absent when free or unlisted. */
   price_out?: number | null;
+  /**
+   * Set when a free cloud model requires creating an account before use.
+   * Value is the provider name shown in the warning (e.g. "groq", "ollama").
+   * Absent on local models and models where no account is needed.
+   */
+  signin_required?: string;
   /** Free-form descriptive note (capabilities, tier caveats). */
   note?: string;
 }
