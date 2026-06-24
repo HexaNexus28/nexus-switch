@@ -50,7 +50,9 @@ export function launch(provider: Provider, model: string, rest: string[]): void 
   restoreInteractiveStdin();
   if (provider.type === 'ollama') {
     const modelDef = provider.models.find((m) => m.id === model);
-    if (modelDef?.signin_required) {
+    // Fall back to the :cloud suffix for models not in the catalog (e.g. user-pulled
+    // custom cloud models discovered by refreshOllama before catalog update).
+    if (modelDef?.signin_required ?? model.endsWith(':cloud')) {
       // Cloud models route through Ollama's hosted backend — needs a free account + CLI signin.
       console.error(
         "Modele Ollama cloud — compte requis (gratuit, sans CB) : ollama.com\n" +
