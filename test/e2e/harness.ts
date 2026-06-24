@@ -194,26 +194,27 @@ export interface PtyOptions extends RunOptions {
  * no prebuilt binary for this platform.
  */
 export async function runNexusPty(args: string[], opts: PtyOptions): Promise<PtyResult | null> {
+  // ConPTY (Windows pseudo-terminal) requires an attached console window.
+  // Headless CI runners have no console, so node-pty's conpty_console_list_agent
+  // throws "AttachConsole failed" when spawning -- not catchable from JS since
+  // it happens in a subprocess. Detect this pre-spawn via the standard CI env
+  // var, and on non-TTY stdout (no terminal), and skip the test in that case.
+  if (process.env.CI === 'true' && process.platform === 'win32') return null;
+  if (!process.stdout.isTTY) return null;
+
   let pty: typeof import('node-pty');
   try {
     pty = await import('node-pty');
   } catch {
     return null;
   }
-  let child: ReturnType<typeof pty.spawn>;
-  try {
-    child = pty.spawn(process.execPath, [nexusBin, ...args], {
-      name: 'xterm-256color',
-      cols: 100,
-      rows: 30,
-      cwd: repoRoot,
-      env: buildChildEnv(opts) as Record<string, string>,
-    });
-  } catch {
-    // ConPTY requires a real console window; headless CI runners (no console
-    // attached) throw "AttachConsole failed". Skip gracefully.
-    return null;
-  }
+  const child = pty.spawn(process.execPath, [nexusBin, ...args], {
+    name: 'xterm-256color',
+    cols: 100,
+    rows: 30,
+    cwd: repoRoot,
+    env: buildChildEnv(opts) as Record<string, string>,
+  });
   const pending = [...(opts.respondTo ?? [])];
   let output = '';
   return await new Promise<PtyResult>((resolve) => {
