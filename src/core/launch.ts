@@ -49,12 +49,17 @@ export function launch(provider: Provider, model: string, rest: string[]): void 
   // claude/ollama inherit it, so make it a clean interactive TTY first.
   restoreInteractiveStdin();
   if (provider.type === 'ollama') {
-    // Cloud models route through Ollama's hosted backend, which needs a (free) account.
-    // Local models load fully into RAM/VRAM; coding tools need a large context
-    // (>=64k), whose KV cache can be many GB -> OOM on modest machines.
-    if (model.endsWith(':cloud')) {
-      console.error("Modele Ollama cloud : si ce n'est pas deja fait, connecte-toi avec `ollama signin` (compte gratuit + quota).");
+    const modelDef = provider.models.find((m) => m.id === model);
+    if (modelDef?.signin_required) {
+      // Cloud models route through Ollama's hosted backend — needs a free account + CLI signin.
+      console.error(
+        "Modele Ollama cloud — compte requis (gratuit, sans CB) : ollama.com\n" +
+        "Lance `ollama signin` si ce n'est pas encore fait.\n" +
+        "Quota gratuit : reset toutes les 5h + hebdomadaire, 1 modele concurrent.\n" +
+        "Pour lever les limites : Pro 20$/mois · Max 100$/mois -> ollama.com/pricing"
+      );
     } else {
+      // Local models load fully into RAM/VRAM; large context KV cache can be many GB -> OOM.
       console.error("Modele Ollama local : grand contexte = beaucoup de RAM/VRAM. Si 'out of memory' -> bascule sur un modele :cloud, ou baisse OLLAMA_CONTEXT_LENGTH (ex. 16384) et relance Ollama.");
     }
     const args = ['launch', 'claude', '--model', model, ...(rest.length ? ['--', ...rest] : [])];

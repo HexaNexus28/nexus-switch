@@ -2,20 +2,20 @@
   "type": "litellm",
   "name": "Mistral AI (via LiteLLM)",
   "default": "mistral/devstral-2",
-  "setup": "nexus key set mistral <cle> (console.mistral.ai). Tier gratuit experimental ; tarifs ci-dessous au-dela. Contexte non publie sur la page tarifs -> null. Source : mistral.ai/pricing",
+  "setup": "nexus key set mistral <cle> (console.mistral.ai). Compte requis, sans CB. Tier gratuit experimental avec restrictions. Source : mistral.ai/pricing",
   "env": {
     "ANTHROPIC_BASE_URL": "http://127.0.0.1:4000",
     "ANTHROPIC_AUTH_TOKEN": "${NEXUS_PROXY_KEY}",
     "ANTHROPIC_API_KEY": ""
   },
   "models": [
-    { "id": "mistral/devstral-2", "name": "Devstral 2", "free": true, "location": "cloud", "context": null, "price_in": 0.40, "price_out": 2.00, "note": "coding agentique (concu pour les agents de code)" },
-    { "id": "mistral/codestral", "name": "Codestral", "free": true, "location": "cloud", "context": null, "price_in": 0.30, "price_out": 0.90, "note": "coding/completion, rapide" },
-    { "id": "mistral/mistral-large-3", "name": "Mistral Large 3", "free": true, "location": "cloud", "context": null, "price_in": 0.50, "price_out": 1.50, "note": "generaliste frontier" },
-    { "id": "mistral/mistral-medium-3.5", "name": "Mistral Medium 3.5", "free": true, "location": "cloud", "context": null, "price_in": 1.50, "price_out": 7.50, "note": "generaliste haut de gamme" },
-    { "id": "mistral/mistral-small-4", "name": "Mistral Small 4", "free": true, "location": "cloud", "context": null, "price_in": 0.10, "price_out": 0.30, "note": "rapide/cheap, polyvalent" },
-    { "id": "mistral/ministral-3-14b", "name": "Ministral 3 14B", "free": true, "location": "cloud", "context": null, "price_in": 0.20, "price_out": 0.20, "note": "edge/petit, tools" },
-    { "id": "mistral/ministral-3-8b", "name": "Ministral 3 8B", "free": true, "location": "cloud", "context": null, "price_in": 0.15, "price_out": 0.15, "note": "edge/petit, tools" },
-    { "id": "mistral/ministral-3-3b", "name": "Ministral 3 3B", "free": true, "location": "cloud", "context": null, "price_in": 0.10, "price_out": 0.10, "note": "edge ultra leger, tools" }
+    { "id": "mistral/devstral-2", "name": "Devstral 2", "free": true, "signin_required": "mistral", "location": "cloud", "context": null, "price_in": 0.40, "price_out": 2.00, "note": "coding agentique — compte requis (console.mistral.ai)" },
+    { "id": "mistral/codestral", "name": "Codestral", "free": true, "signin_required": "mistral", "location": "cloud", "context": null, "price_in": 0.30, "price_out": 0.90, "note": "coding/completion rapide — compte requis" },
+    { "id": "mistral/mistral-large-3", "name": "Mistral Large 3", "free": true, "signin_required": "mistral", "location": "cloud", "context": null, "price_in": 0.50, "price_out": 1.50, "note": "generaliste frontier — compte requis" },
+    { "id": "mistral/mistral-medium-3.5", "name": "Mistral Medium 3.5", "free": true, "signin_required": "mistral", "location": "cloud", "context": null, "price_in": 1.50, "price_out": 7.50, "note": "generaliste haut de gamme — compte requis" },
+    { "id": "mistral/mistral-small-4", "name": "Mistral Small 4", "free": true, "signin_required": "mistral", "location": "cloud", "context": null, "price_in": 0.10, "price_out": 0.30, "note": "rapide/cheap, polyvalent — compte requis" },
+    { "id": "mistral/ministral-3-14b", "name": "Ministral 3 14B", "free": true, "signin_required": "mistral", "location": "cloud", "context": null, "price_in": 0.20, "price_out": 0.20, "note": "edge/petit, tools — compte requis" },
+    { "id": "mistral/ministral-3-8b", "name": "Ministral 3 8B", "free": true, "signin_required": "mistral", "location": "cloud", "context": null, "price_in": 0.15, "price_out": 0.15, "note": "edge/petit, tools — compte requis" },
+    { "id": "mistral/ministral-3-3b", "name": "Ministral 3 3B", "free": true, "signin_required": "mistral", "location": "cloud", "context": null, "price_in": 0.10, "price_out": 0.10, "note": "edge ultra leger, tools — compte requis" }
   ]
 }
