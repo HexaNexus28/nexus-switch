@@ -57,10 +57,9 @@ export function refreshOllama(): { models: number } {
     return {
       id,
       name: id,
-      free: true, // local = gratuit ; cloud Ollama = tier gratuit avec quota
+      free: true,
       location: cloud ? 'cloud' : 'local',
-      ram_gb: null,
-      disk_gb: null,
+      ...(cloud ? { signin_required: 'ollama' } : { ram_gb: null, disk_gb: null }),
       note: cloud ? 'cloud (quota gratuit, signin requis)' : 'local',
     };
   });

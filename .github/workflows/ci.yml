@@ -4,9 +4,8 @@ name: CI
 # ship a version. The unit suite mocks spawn; the e2e suite drives the real
 # binary against fake tools; the docker job proves a bare machine (no python).
 on:
-  push:
-    branches: [main]
   pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
