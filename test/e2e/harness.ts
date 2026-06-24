@@ -200,13 +200,20 @@ export async function runNexusPty(args: string[], opts: PtyOptions): Promise<Pty
   } catch {
     return null;
   }
-  const child = pty.spawn(process.execPath, [nexusBin, ...args], {
-    name: 'xterm-256color',
-    cols: 100,
-    rows: 30,
-    cwd: repoRoot,
-    env: buildChildEnv(opts) as Record<string, string>,
-  });
+  let child: ReturnType<typeof pty.spawn>;
+  try {
+    child = pty.spawn(process.execPath, [nexusBin, ...args], {
+      name: 'xterm-256color',
+      cols: 100,
+      rows: 30,
+      cwd: repoRoot,
+      env: buildChildEnv(opts) as Record<string, string>,
+    });
+  } catch {
+    // ConPTY requires a real console window; headless CI runners (no console
+    // attached) throw "AttachConsole failed". Skip gracefully.
+    return null;
+  }
   const pending = [...(opts.respondTo ?? [])];
   let output = '';
   return await new Promise<PtyResult>((resolve) => {
