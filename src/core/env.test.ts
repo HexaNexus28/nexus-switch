@@ -55,6 +55,7 @@ test('OpenRouter non-claude: env resolved from store + thinking disabled', () =>
   assert.equal(process.env.ANTHROPIC_API_KEY, undefined); // empty template => deleted (C3)
   assert.equal(process.env.MAX_THINKING_TOKENS, '0');
   assert.equal(process.env.CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING, '1');
+  assert.equal(process.env.CLAUDE_CODE_EFFORT_LEVEL, 'unset');
 });
 
 test('OpenRouter claude model: thinking NOT disabled (model-keyed rule)', () => {
@@ -62,6 +63,7 @@ test('OpenRouter claude model: thinking NOT disabled (model-keyed rule)', () => 
   applyProviderEnv(openrouter(), 'anthropic/claude-sonnet-4-6');
   assert.equal(process.env.MAX_THINKING_TOKENS, undefined);
   assert.equal(process.env.CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING, undefined);
+  assert.equal(process.env.CLAUDE_CODE_EFFORT_LEVEL, undefined);
 });
 
 test('Anthropic: API key survives the universal reset via the env snapshot', () => {
