@@ -1,85 +1,61 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { useEffect, useState } from 'react';
 import { Box, Text, useStdout } from 'ink';
+import { proxyRunning } from '../core/proxy.js';
 
-const H20 = '─'.repeat(20);
-const H16 = '─'.repeat(16);
-const H3 = '─'.repeat(3);
+// dist/ui/Header.js -> ../../package.json (same layout in the published package).
+const VERSION: string = (() => {
+  try {
+    const pkg = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'package.json');
+    return `v${(JSON.parse(readFileSync(pkg, 'utf8')) as { version: string }).version}`;
+  } catch {
+    return '';
+  }
+})();
 
 /**
- * Nexus logo: two interlaced rounded rectangles crossing on NEXUS / SWITCH with
- * diagonal nodes. Centred on the console width, simple fallback when narrow.
- * Ported from the PowerShell _ui_header.
+ * One-line signature + live status. The hub re-renders the TUI after every
+ * claude session, so the header must stay cheap and flat — identity comes from
+ * the glyph + wordmark, the rest of the line is USEFUL state (version, LiteLLM
+ * gateway reachability), not decoration.
  */
 export function Header() {
   const { stdout } = useStdout();
   const cols = stdout?.columns ?? 80;
+  const [proxyUp, setProxyUp] = useState<boolean | null>(null);
 
-  if (cols < 46) {
-    return (
-      <Box marginY={1}>
-        <Text color="cyan" bold>
-          {' '}
-          N E X U S S W I T C H{' '}
-        </Text>
-        <Text color="gray"> · HexaNexus</Text>
-      </Box>
-    );
-  }
+  useEffect(() => {
+    let alive = true;
+    void proxyRunning().then((up) => {
+      if (alive) setProxyUp(up);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
-  const pad = ' '.repeat(Math.max(2, Math.floor((cols - 38) / 2)));
-  const p = (n: number): string => pad + ' '.repeat(n);
+  // Manual spacing: Ink's justify depends on the parent width, which is not
+  // guaranteed here — measure the plain strings and pad deterministically.
+  const tagline = cols >= 72 ? '  ·  AI model router · HexaNexus' : '';
+  const left = `◢ NEXUS SWITCH${tagline}`;
+  const right = `${VERSION ? `${VERSION} · ` : ''}proxy ${proxyUp ? '● :4000' : '○'}`;
+  const gap = Math.max(2, cols - 2 - left.length - right.length);
 
   return (
-    <Box flexDirection="column" marginY={1}>
+    <Box marginY={1} paddingX={1}>
       <Text>
-        {p(10)}
-        <Text color="cyan">╭{H20}╮</Text>
-      </Text>
-      <Text>
-        {p(10)}
-        <Text color="cyan">│</Text>
-        <Text color="white" bold>
-          {'   N E X U S        '}
-        </Text>
-        <Text color="cyan">├─</Text>
-        <Text color="green">●</Text>
-      </Text>
-      <Text>
-        {p(6)}
-        <Text color="cyan">╭{H3}</Text>
-        <Text color="magenta">┼</Text>
-        <Text color="cyan">{H16}╮</Text>
-        {'   '}
-        <Text color="cyan">├─</Text>
-        <Text color="green">●</Text>
-      </Text>
-      <Text>
-        {p(4)}
-        <Text color="green">●</Text>
-        <Text color="cyan">─┤</Text>
-        {'   '}
-        <Text color="cyan">╰{H16}</Text>
-        <Text color="magenta">┼</Text>
-        <Text color="cyan">{H3}╯</Text>
-      </Text>
-      <Text>
-        {p(4)}
-        <Text color="green">●</Text>
-        <Text color="cyan">─┤</Text>
-        <Text color="white" bold>
-          {'    S W I T C H     '}
-        </Text>
-        <Text color="cyan">│</Text>
-      </Text>
-      <Text>
-        {p(6)}
-        <Text color="cyan">╰{H20}╯</Text>
-      </Text>
-      <Text>
-        {p(6)}
-        <Text color="cyan" bold>
-          HexaNexus
-        </Text>
-        <Text color="gray">{'  ·  AI Model Router'}</Text>
+        <Text color="cyan">{'◢ '}</Text>
+        <Text bold>NEXUS SWITCH</Text>
+        <Text dimColor>{tagline}</Text>
+        {cols >= 56 ? (
+          <>
+            <Text dimColor>{`${' '.repeat(gap)}${VERSION ? `${VERSION} · ` : ''}proxy `}</Text>
+            <Text color={proxyUp ? 'green' : 'gray'}>{proxyUp ? '●' : '○'}</Text>
+            <Text dimColor>{proxyUp ? ' :4000' : ''}</Text>
+          </>
+        ) : null}
       </Text>
     </Box>
   );
