@@ -1,11 +1,21 @@
 name: CI
 
-# Tests run on every push/PR, on both OSes nexus targets, BEFORE publish.yml can
+# Tests run on PRs only (never re-run on merge: the pull_request check already
+# tested the merge preview), on both OSes nexus targets, BEFORE publish.yml can
 # ship a version. The unit suite mocks spawn; the e2e suite drives the real
 # binary against fake tools; the docker job proves a bare machine (no python).
+#
+# paths-ignore: a release PR only bumps package.json/package-lock.json — the
+# code it ships was already tested in its feature PR, so re-running the full
+# matrix is redundant. Trade-off: a pure dependency-bump PR skips CI too;
+# publish.yml still runs `npm ci` + the prepare build, which catches a broken
+# install before anything reaches npm.
 on:
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'package.json'
+      - 'package-lock.json'
   workflow_dispatch:
 
 jobs:
