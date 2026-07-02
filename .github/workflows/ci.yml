@@ -6,13 +6,17 @@ name: CI
 # binary against fake tools; the docker job proves a bare machine (no python).
 #
 # Release PRs only bump package.json/package-lock.json — the code they ship was
-# already tested in its feature PR, so the matrix is skipped for them. NOT via
-# `on.paths-ignore`: the main ruleset REQUIRES the five job contexts, and a
-# workflow that never triggers leaves them "Expected" forever, blocking the
-# merge. Instead the `changes` gate always runs and the jobs self-skip —
-# skipped required checks count as satisfied. Trade-off: a pure dependency-bump
-# PR skips the matrix too; publish.yml still runs `npm ci` + the prepare build
-# as a net before anything reaches npm.
+# already tested in its feature PR, so the matrix work is skipped for them.
+# Two constraints shape HOW:
+#   - `on.paths-ignore` would leave the ruleset's required checks "Expected"
+#     forever (workflow never triggers) and block every release merge.
+#   - a job-level `if` on a matrix job skips BEFORE matrix expansion, so the
+#     check reports as the literal "unit (${{ matrix.os }})" — which is not the
+#     context name the ruleset requires, and the merge stays blocked.
+# Hence: the `changes` gate always runs, and every STEP self-skips — the jobs
+# expand, spin a runner for a few seconds, and report success under their real
+# names. Trade-off: a pure dependency-bump PR skips the matrix too; publish.yml
+# still runs `npm ci` + the prepare build as a net before anything reaches npm.
 on:
   pull_request:
     branches: [main]
@@ -43,7 +47,6 @@ jobs:
   unit:
     name: unit (${{ matrix.os }})
     needs: changes
-    if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -51,17 +54,21 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        if: needs.changes.outputs.code == 'true'
       - uses: actions/setup-node@v4
+        if: needs.changes.outputs.code == 'true'
         with:
           node-version: 22
-      - run: npm ci
-      - run: npm run build
-      - run: npm test
+      - if: needs.changes.outputs.code == 'true'
+        run: npm ci
+      - if: needs.changes.outputs.code == 'true'
+        run: npm run build
+      - if: needs.changes.outputs.code == 'true'
+        run: npm test
 
   e2e:
     name: e2e (${{ matrix.os }})
     needs: changes
-    if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -69,19 +76,24 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        if: needs.changes.outputs.code == 'true'
       - uses: actions/setup-node@v4
+        if: needs.changes.outputs.code == 'true'
         with:
           node-version: 22
-      - run: npm ci
-      - run: npm run test:e2e
+      - if: needs.changes.outputs.code == 'true'
+        run: npm ci
+      - if: needs.changes.outputs.code == 'true'
+        run: npm run test:e2e
 
   fresh-user:
     name: fresh-user (bare node, no python)
     needs: changes
-    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        if: needs.changes.outputs.code == 'true'
       # The e2e suite runs inside a node:22-slim stage with no python/pip/claude/
       # litellm — a build failure here means the CLI assumed dev tooling exists.
-      - run: docker build -f test/docker/Dockerfile .
+      - if: needs.changes.outputs.code == 'true'
+        run: docker build -f test/docker/Dockerfile .
