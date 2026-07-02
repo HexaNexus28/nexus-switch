@@ -1,6 +1,6 @@
 import { render } from 'ink';
 import { loadAllProviders } from '../core/providers.js';
-import { launch, restoreInteractiveStdin } from '../core/launch.js';
+import { launch, releaseStdin } from '../core/launch.js';
 import { ensureProxyForProvider } from '../core/proxy.js';
 import { ensureClaude, ensureLitellm, ensureOllamaModel, ensureProviderKey } from '../prompt.js';
 import { App, type Choice } from './App.js';
@@ -29,9 +29,11 @@ export async function runTui(): Promise<void> {
   // dependency [o/N] install prompt (e.g. LiteLLM) never received the keypress
   // and hung. waitUntilExit() resolves only after teardown completes.
   await app.waitUntilExit();
-  // Ink released stdin half-owned; restore it so the readline ensure* prompts
-  // below actually receive keypresses (launch() restores it again pre-spawn).
-  restoreInteractiveStdin();
+  // Ink can leave raw mode half-torn-down; reset it. Readline resumes the
+  // stream itself when a prompt attaches, so stdin stays paused here — a
+  // flowing stdin would keep a console read pending that later steals the
+  // launched claude's first keystrokes (launch() releases it again pre-spawn).
+  releaseStdin();
 
   const { choice } = picked;
   if (!choice) return;

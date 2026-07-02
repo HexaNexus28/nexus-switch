@@ -47,17 +47,36 @@ export function writeStub(binDir: string, name: string, jsBody: string): void {
 // `--require` hook. The guard makes the Windows hook a no-op in every node
 // process EXCEPT the claude.exe stub (the parent nexus is also node and would
 // otherwise run it and exit before doing any work).
+//
+// With NEXUS_E2E_CLAUDE_READ=1 the stub additionally announces itself, then
+// BLOCKS on a synchronous stdin read until a full line arrives — the probe for
+// the stolen-keystroke bug (a parent that kept a console read pending eats the
+// line; the stub then never logs and the test times out). Sync read only: the
+// hook must not return, or node would start its REPL and fight for stdin.
 function claudeRecorderBody(logPath: string): string {
   return [
     "const path = require('node:path');",
     "const isWinHook = process.platform === 'win32';",
     "if (!isWinHook || path.basename(process.execPath).toLowerCase() === 'claude.exe') {",
     "  const fs = require('node:fs');",
+    "  let typed = null;",
+    "  if (process.env.NEXUS_E2E_CLAUDE_READ === '1') {",
+    "    process.stdout.write('CLAUDE_STUB_READY\\n');",
+    '    typed = \'\';',
+    '    const buf = Buffer.alloc(256);',
+    "    while (!/[\\r\\n]/.test(typed)) {",
+    '      const n = fs.readSync(0, buf, 0, 256, null);',
+    '      if (n <= 0) break;',
+    "      typed += buf.toString('utf8', 0, n);",
+    '    }',
+    '    typed = typed.trim();',
+    '  }',
     `  fs.writeFileSync(${JSON.stringify(logPath)}, JSON.stringify({`,
     '    argv: process.argv.slice(2),',
     '    stdinIsTTY: Boolean(process.stdin.isTTY),',
     '    baseUrl: process.env.ANTHROPIC_BASE_URL || null,',
     '    authToken: process.env.ANTHROPIC_AUTH_TOKEN || null,',
+    '    typed,',
     '  }));',
     '  process.exit(0);',
     '}',
@@ -82,14 +101,7 @@ export function installClaudeStub(binDir: string, logPath: string): void {
     writeStub(binDir, 'claude', body);
     return;
   }
-  const claudeExe = join(binDir, 'claude.exe');
-  if (!existsSync(claudeExe)) {
-    try {
-      linkSync(process.execPath, claudeExe); // instant, same volume
-    } catch {
-      copyFileSync(process.execPath, claudeExe); // cross-volume fallback
-    }
-  }
+  linkNodeAs(binDir, 'claude.exe');
   const hook = join(binDir, 'claude-stub.cjs');
   writeFileSync(hook, body);
   // NODE_OPTIONS treats backslash as an escape, so a Windows path silently loses
@@ -101,6 +113,34 @@ export function installClaudeStub(binDir: string, logPath: string): void {
 /** A `litellm` stub: presence only (proxy is faked separately on :4000). */
 export function installLitellmStub(binDir: string): void {
   writeStub(binDir, 'litellm', 'process.exit(0);');
+}
+
+/** Hardlink the running node.exe into binDir under `exeName` (spawn-without-shell resolvable). */
+function linkNodeAs(binDir: string, exeName: string): void {
+  const target = join(binDir, exeName);
+  if (existsSync(target)) return;
+  try {
+    linkSync(process.execPath, target); // instant, same volume
+  } catch {
+    copyFileSync(process.execPath, target); // cross-volume fallback
+  }
+}
+
+/**
+ * Neutralize the machine's real Python so litellm detection is hermetic:
+ * pythonScriptDirs() asks python/python3/py where pip's script dirs live, which
+ * finds a REAL off-PATH litellm on the dev box and breaks the "litellm absent"
+ * scenario. On Windows the stubs must be .exe (spawn without shell never sees
+ * .cmd), so we link node.exe under the python names: node choking on python
+ * argv (`-c <code>`) exits non-zero with no stdout, which the probes treat as
+ * "no usable interpreter". POSIX gets plain exit-1 scripts.
+ */
+export function installPythonStub(binDir: string): void {
+  mkdirSync(binDir, { recursive: true });
+  for (const name of ['python', 'python3', 'py']) {
+    if (isWin) linkNodeAs(binDir, `${name}.exe`);
+    else writeStub(binDir, name, 'process.exit(1);');
+  }
 }
 
 export interface RunResult {

@@ -9,20 +9,23 @@ export function claudeExists(): boolean {
 }
 
 /**
- * Hand the child a clean interactive terminal. The readline prompts (key /
- * litellm install) and the inherited `pip install` subprocess leave stdin
- * paused and possibly in raw mode; claude then detects a non-interactive stdin,
- * falls back to `--print`, and exits immediately ("returns to the shell"). Reset
- * stdin right before inheriting it so the child gets a real interactive TTY.
+ * Reset stdin to a clean cooked state and STOP reading it. Ink (raw mode) and
+ * the readline prompts leave stdin dirtied; more importantly, a parent stdin
+ * left in flowing mode keeps a console read pending on Windows (libuv reads the
+ * console from a thread, so spawnSync blocking the loop does not stop it). That
+ * pending read competes with the inherited child for keystrokes: claude ignores
+ * typing until a mouse click flushes the stale read. Nobody needs stdin flowing
+ * here — readline resumes the stream itself when a prompt attaches (the direct
+ * CLI path proves it: stdin starts paused and prompts work), and the child
+ * inherits the TTY handle directly, unaffected by the parent's pause.
  */
-export function restoreInteractiveStdin(): void {
+export function releaseStdin(): void {
   const { stdin } = process;
-  // Only act on a real interactive terminal. A non-TTY stdin (piped tests,
-  // non-interactive CI) must not be resumed — that keeps the event loop alive
-  // and the process never exits.
+  // Only act on a real interactive terminal — a piped stdin (tests, CI) has no
+  // raw mode and no console read to cancel.
   if (!stdin.isTTY) return;
   if (typeof stdin.setRawMode === 'function') stdin.setRawMode(false);
-  stdin.resume();
+  stdin.pause();
 }
 
 /**
@@ -46,8 +49,9 @@ export function launch(provider: Provider, model: string, rest: string[]): void 
   // otherwise hijack the launched claude.
   resetProviderEnv();
   // Any ensure* prompt or the pip install run before this point dirties stdin;
-  // claude/ollama inherit it, so make it a clean interactive TTY first.
-  restoreInteractiveStdin();
+  // claude/ollama inherit the terminal, so stop reading it and reset raw mode
+  // first — a lingering parent read steals the child's first keystrokes.
+  releaseStdin();
   if (provider.type === 'ollama') {
     const modelDef = provider.models.find((m) => m.id === model);
     // Fall back to the :cloud suffix for models not in the catalog (e.g. user-pulled
