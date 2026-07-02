@@ -41,3 +41,40 @@ test('claude inherits an interactive TTY after a readline prompt', async (t) => 
     rmSync(binDir, { recursive: true, force: true });
   }
 });
+
+// Stolen-keystroke regression: a launcher stdin left in flowing mode keeps a
+// console read pending (Windows reads the console from a thread, immune to
+// spawnSync blocking the loop), which eats the child's first line — the user
+// had to click the window before typing reached claude. The stub blocks on a
+// real stdin read; if the line we type is stolen by the parent, the stub never
+// logs and the test times out.
+test('typed input reaches claude right after launch (no stolen first keystrokes)', async (t) => {
+  const dataDir = makeTempDir('nexus-e2e-type-');
+  const binDir = makeTempDir('nexus-e2e-bin-');
+  const claudeLog = join(makeTempDir('nexus-e2e-log-'), 'claude.json');
+  try {
+    installClaudeStub(binDir, claudeLog);
+    const result = await runNexusPty(['openrouter'], {
+      dataDir,
+      binDir,
+      extraEnv: { NEXUS_E2E_CLAUDE_LOG: claudeLog, NEXUS_E2E_CLAUDE_READ: '1' },
+      respondTo: [
+        // The key prompt makes the launcher read stdin first — the dirtiest path.
+        { match: /cle openrouter/i, send: 'or-secret\r' },
+        { match: /CLAUDE_STUB_READY/, send: 'hello claude\r' },
+      ],
+      until: () => existsSync(claudeLog),
+      timeoutMs: 20_000,
+    });
+    if (result === null) {
+      t.skip('node-pty has no prebuilt binary on this platform');
+      return;
+    }
+    assert.equal(result.exitCode, 0, `stub never received the typed line: ${result.output.slice(-500)}`);
+    const seen = JSON.parse(readFileSync(claudeLog, 'utf8')) as { typed: string | null };
+    assert.equal(seen.typed, 'hello claude', 'first typed line was stolen by the launcher');
+  } finally {
+    rmSync(dataDir, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});

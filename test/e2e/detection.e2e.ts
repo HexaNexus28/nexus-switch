@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { createServer, type Server } from 'node:net';
 import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { installClaudeStub, installLitellmStub, makeTempDir, runNexus, writeStub } from './harness.js';
+import { installClaudeStub, installLitellmStub, installPythonStub, makeTempDir, runNexus, writeStub } from './harness.js';
 
 /**
  * Bring a fake LiteLLM gateway up on the loopback port the CLI probes. Returns
@@ -54,6 +54,11 @@ test('non-TTY groq with no litellm: prints the manual install path and exits 1',
   const binDir = makeTempDir('nexus-e2e-bin-');
   try {
     writeStub(binDir, 'claude', 'process.exit(0);'); // claude present, litellm absent
+    // Detection also asks the REAL python where pip drops scripts, which finds a
+    // genuinely installed off-PATH litellm on a dev box — stub python out so the
+    // "absent" premise holds everywhere. (A litellm directly on PATH can't be
+    // hidden; prepended stubs don't remove real PATH entries.)
+    installPythonStub(binDir);
     runNexus(['key', 'set', 'groq', 'g-secret'], { dataDir, binDir, input: '' });
     const r = runNexus(['groq'], { dataDir, binDir, input: '' });
     assert.equal(r.status, 1, 'must fail cleanly, not crash or hang');

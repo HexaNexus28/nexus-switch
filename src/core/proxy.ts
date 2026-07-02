@@ -70,10 +70,13 @@ export function proxyRunning(): Promise<boolean> {
 }
 
 /**
- * Python's console-script dirs (sys + user). A `pip --user` install on Windows
- * drops litellm.exe in %APPDATA%\Python\Scripts, which is usually NOT on PATH —
- * so `where litellm` misses it and nexus would wrongly conclude LiteLLM is
- * absent right after installing it. Ask Python where its scripts actually live.
+ * Python's console-script dirs (sys + user). When site-packages is not
+ * writable (Python installed system-wide, no admin), pip silently falls back
+ * to a user install: on Windows litellm.exe lands in the VERSIONED
+ * %APPDATA%\Python\Python3XX\Scripts, which is usually NOT on PATH — so
+ * `where litellm` misses it and nexus would wrongly conclude LiteLLM is
+ * absent right after installing it. Only the `<os.name>_user` sysconfig
+ * scheme yields that versioned dir (site.getuserbase()+'/Scripts' does not).
  *
  * We don't assume `python` is on PATH: a fresh Windows box may only have the
  * `py` launcher, or expose `python3`, and pip may have installed under any of
@@ -81,7 +84,7 @@ export function proxyRunning(): Promise<boolean> {
  * is found whichever one owns it.
  */
 function pythonScriptDirs(): string[] {
-  const code = "import sysconfig,site,os;print(sysconfig.get_path('scripts'));print(os.path.join(site.getuserbase(),'Scripts'))";
+  const code = "import sysconfig,os;print(sysconfig.get_path('scripts'));print(sysconfig.get_path('scripts',os.name+'_user'))";
   const interpreters: ReadonlyArray<readonly [string, string[]]> = [
     ['python', ['-c', code]],
     ['python3', ['-c', code]],
@@ -160,14 +163,18 @@ export async function startProxy(): Promise<boolean> {
     env: childEnv,
   });
   child.unref();
-  for (let i = 0; i < 20; i += 1) {
+  // Cold boot is slow (heavy Python imports): ~30s measured right after a
+  // fresh pip install. Bailing too early strands a detached proxy that comes
+  // up seconds later — the next launch then "mysteriously" works.
+  console.error('Demarrage du proxy LiteLLM (premier boot : 30-60s)...');
+  for (let i = 0; i < 60; i += 1) {
     await delay(1000);
     if (await proxyRunning()) {
       writeConfigMarker();
       return true;
     }
   }
-  console.error('Proxy LiteLLM sans reponse apres 20s.');
+  console.error('Proxy LiteLLM sans reponse apres 60s.');
   return false;
 }
 
