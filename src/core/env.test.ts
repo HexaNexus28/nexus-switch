@@ -1,4 +1,4 @@
-import test from 'node:test';
+﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -19,7 +19,7 @@ const openrouter = (): Provider => ({
   type: 'openrouter',
   name: 'OpenRouter',
   default: 'openrouter/owl-alpha',
-  models: [{ id: 'openrouter/owl-alpha', name: 'Owl', free: true, location: 'cloud' }],
+  models: [{ id: 'openrouter/owl-alpha', name: 'Owl', tier: 'quota', location: 'cloud' }],
   env: {
     ANTHROPIC_BASE_URL: 'https://openrouter.ai/api',
     ANTHROPIC_AUTH_TOKEN: '${OPENROUTER_API_KEY}',
@@ -31,7 +31,7 @@ const anthropic = (): Provider => ({
   type: 'anthropic',
   name: 'Anthropic',
   default: 'claude-sonnet-4-6',
-  models: [{ id: 'claude-sonnet-4-6', name: 'Sonnet', free: false, location: 'cloud' }],
+  models: [{ id: 'claude-sonnet-4-6', name: 'Sonnet', tier: 'paid', location: 'cloud' }],
   env: { ANTHROPIC_BASE_URL: '', ANTHROPIC_AUTH_TOKEN: '', ANTHROPIC_API_KEY: '${ANTHROPIC_API_KEY}' },
 });
 

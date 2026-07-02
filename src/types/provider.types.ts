@@ -5,12 +5,25 @@ export type ProviderType = 'openrouter' | 'litellm' | 'ollama' | 'anthropic';
 /** Where a model runs: downloaded and executed locally, or served by the provider. */
 export type ModelLocation = 'local' | 'cloud';
 
+/**
+ * What using the model costs — the answer to "will I pay?" for someone who
+ * knows nothing about the provider:
+ *   free         — never billed, no account (local models)
+ *   quota        — free provider account required; free up to a usage quota,
+ *                  then blocked until reset or billed/upgraded (every "free"
+ *                  cloud tier in practice)
+ *   paid         — billed per token from the first request
+ *   subscription — unusable until a paid plan is subscribed (e.g. Ollama
+ *                  models reserved to Pro/Max)
+ */
+export type ModelTier = 'free' | 'quota' | 'paid' | 'subscription';
+
 /** A single model entry in a provider catalog. */
 export interface ProviderModel {
   id: string;
   name: string;
-  /** True when usable at no cost (local model, or a free cloud tier/endpoint). */
-  free: boolean;
+  /** Billing tier — see ModelTier. */
+  tier: ModelTier;
   /** 'local' => runs on the machine (Ollama pull); 'cloud' => served by the provider. */
   location: ModelLocation;
   /** Context window in tokens, when documented. */

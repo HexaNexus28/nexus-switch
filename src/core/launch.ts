@@ -56,7 +56,13 @@ export function launch(provider: Provider, model: string, rest: string[]): void 
     const modelDef = provider.models.find((m) => m.id === model);
     // Fall back to the :cloud suffix for models not in the catalog (e.g. user-pulled
     // custom cloud models discovered by refreshOllama before catalog update).
-    if (modelDef?.signin_required ?? model.endsWith(':cloud')) {
+    if (modelDef?.tier === 'subscription') {
+      // Probed 2026-07: these 403 on a free account before any token is served.
+      console.error(
+        "Modele reserve aux abonnes Ollama Pro/Max — avec un compte gratuit, Claude Code recevra une erreur 403 'requires a subscription'.\n" +
+        "Upgrade : ollama.com/upgrade · gratuits avec quota : minimax-m3:cloud, qwen3-coder:480b-cloud, gpt-oss:120b-cloud"
+      );
+    } else if (modelDef?.signin_required ?? model.endsWith(':cloud')) {
       // Cloud models route through Ollama's hosted backend — needs a free account + CLI signin.
       console.error(
         "Modele Ollama cloud — compte requis (gratuit, sans CB) : ollama.com\n" +

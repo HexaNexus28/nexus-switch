@@ -12,12 +12,14 @@ export interface Choice {
 
 interface Props {
   providers: Provider[];
+  /** Reopen directly on this provider's models (hub loop: back where the user was). */
+  initialProvider?: Provider | null;
   onChoose: (choice: Choice) => void;
   onQuit: () => void;
 }
 
-export function App({ providers, onChoose, onQuit }: Props) {
-  const [provider, setProvider] = useState<Provider | null>(null);
+export function App({ providers, initialProvider, onChoose, onQuit }: Props) {
+  const [provider, setProvider] = useState<Provider | null>(initialProvider ?? null);
 
   return (
     <Box flexDirection="column">

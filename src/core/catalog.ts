@@ -57,7 +57,9 @@ export function refreshOllama(): { models: number } {
     return {
       id,
       name: id,
-      free: true,
+      // Discovered cloud models default to the free-quota tier; the curated
+      // catalog is where subscription-locked ones get flagged.
+      tier: cloud ? 'quota' : 'free',
       location: cloud ? 'cloud' : 'local',
       ...(cloud ? { signin_required: 'ollama' } : { ram_gb: null, disk_gb: null }),
       note: cloud ? 'cloud (quota gratuit, signin requis)' : 'local',

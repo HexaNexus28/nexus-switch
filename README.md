@@ -55,13 +55,17 @@ nexus openrouter      # OpenRouter free-tier models
 | **NVIDIA NIM** | ✅ 1000 credits | Required | `nexus key set nvidia <key>` |
 | **OpenRouter** | ✅ 50 req/day | Required | `nexus key set openrouter <key>` |
 | **Ollama local** | ✅ unlimited | None | `ollama pull <model>` |
-| **Ollama cloud** | ✅ quota | Required | `ollama signin` |
+| **Ollama cloud** | ✅ quota (some models Pro-only) | Required | `ollama signin` |
 | **Anthropic** | ❌ paid | Required | `nexus key set anthropic <key>` |
 
-The TUI shows each model's tier clearly:
-- **`GRATUIT`** (green) — truly free, no account needed
-- **`COMPTE`** (yellow) — free but requires a provider account
-- **`PAYANT`** (gray) — billed per token
+The TUI labels every model's billing tier, and the picker explains the
+highlighted model's cost in plain words:
+- **`GRATUIT`** (green) — runs locally, no account, never billed
+- **`QUOTA`** (yellow) — free provider account required; free up to a usage
+  quota, then blocked or billed
+- **`PAYANT`** (red) — billed per token from the first request
+- **`UPGRADE`** (magenta) — unusable without a paid subscription (e.g. some
+  Ollama cloud models 403 on a free account)
 
 ## Commands
 

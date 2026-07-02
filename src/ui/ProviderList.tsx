@@ -8,8 +8,16 @@ interface Props {
   onQuit: () => void;
 }
 
+/** "8 modeles · gratuit" / "9 modeles · quota" — the cheapest tier available. */
+function summary(p: Provider): string {
+  const tiers = new Set(p.models.map((m) => m.tier));
+  const best = tiers.has('free') ? 'gratuit' : tiers.has('quota') ? 'quota gratuit' : tiers.has('paid') ? 'payant' : 'abonnement';
+  return `${p.models.length} modeles · ${best}`;
+}
+
 export function ProviderList({ providers, onSelect, onQuit }: Props) {
   const [cursor, setCursor] = useState(0);
+  const nameWidth = Math.max(...providers.map((p) => p.name.length));
 
   useInput((input, key) => {
     if (key.upArrow) setCursor((c) => Math.max(0, c - 1));
@@ -19,17 +27,29 @@ export function ProviderList({ providers, onSelect, onQuit }: Props) {
   });
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1}>
-      <Text color="cyan" bold>
-        Provider
-      </Text>
-      {providers.map((p, i) => (
-        <Text key={p.name} inverse={i === cursor}>
-          {i === cursor ? '▶ ' : '  '}
-          {p.name}
+    <Box flexDirection="column" paddingX={1}>
+      <Text>
+        <Text color="cyan" bold>
+          Providers
         </Text>
-      ))}
-      <Text color="gray">↑↓ naviguer · Entrée choisir · q quitter</Text>
+        <Text dimColor>{'  ·  choisis ta source de modeles'}</Text>
+      </Text>
+      <Text dimColor>{'─'.repeat(Math.min(72, nameWidth + 30))}</Text>
+      {providers.map((p, i) => {
+        const selected = i === cursor;
+        return (
+          <Text key={p.name}>
+            <Text color="cyan">{selected ? '▸ ' : '  '}</Text>
+            <Text bold={selected} dimColor={!selected}>
+              {p.name.padEnd(nameWidth + 2)}
+            </Text>
+            <Text dimColor>{summary(p)}</Text>
+          </Text>
+        );
+      })}
+      <Box marginTop={1}>
+        <Text dimColor>{'↑↓ naviguer · ⏎ choisir · q quitter'}</Text>
+      </Box>
     </Box>
   );
 }

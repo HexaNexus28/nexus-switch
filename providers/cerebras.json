@@ -9,9 +9,49 @@
     "ANTHROPIC_API_KEY": ""
   },
   "models": [
-    { "id": "cerebras/gpt-oss-120b", "name": "GPT-OSS 120B", "free": true, "signin_required": "cerebras", "location": "cloud", "context": null, "price_in": null, "price_out": null, "note": "production, reasoning ~3000 tok/s — compte gratuit requis (cloud.cerebras.ai)" },
-    { "id": "cerebras/zai-glm-4.7", "name": "Z.ai GLM 4.7", "free": true, "signin_required": "cerebras", "location": "cloud", "context": null, "price_in": null, "price_out": null, "note": "preview, 355B ~1000 tok/s, coding/agentique — compte gratuit requis" },
-    { "id": "cerebras/qwen-3-32b", "name": "Qwen3 32B", "free": true, "signin_required": "cerebras", "location": "cloud", "context": null, "price_in": null, "price_out": null, "note": "coding/reasoning — compte gratuit requis (id best-effort)" },
-    { "id": "cerebras/llama-3.3-70b", "name": "Llama 3.3 70B", "free": true, "signin_required": "cerebras", "location": "cloud", "context": null, "price_in": null, "price_out": null, "note": "polyvalent tres rapide — compte gratuit requis (id best-effort)" }
+    {
+      "id": "cerebras/gpt-oss-120b",
+      "name": "GPT-OSS 120B",
+      "tier": "quota",
+      "signin_required": "cerebras",
+      "location": "cloud",
+      "context": null,
+      "price_in": null,
+      "price_out": null,
+      "note": "production, reasoning ~3000 tok/s — compte gratuit requis (cloud.cerebras.ai)"
+    },
+    {
+      "id": "cerebras/zai-glm-4.7",
+      "name": "Z.ai GLM 4.7",
+      "tier": "quota",
+      "signin_required": "cerebras",
+      "location": "cloud",
+      "context": null,
+      "price_in": null,
+      "price_out": null,
+      "note": "preview, 355B ~1000 tok/s, coding/agentique — compte gratuit requis"
+    },
+    {
+      "id": "cerebras/qwen-3-32b",
+      "name": "Qwen3 32B",
+      "tier": "quota",
+      "signin_required": "cerebras",
+      "location": "cloud",
+      "context": null,
+      "price_in": null,
+      "price_out": null,
+      "note": "coding/reasoning — compte gratuit requis (id best-effort)"
+    },
+    {
+      "id": "cerebras/llama-3.3-70b",
+      "name": "Llama 3.3 70B",
+      "tier": "quota",
+      "signin_required": "cerebras",
+      "location": "cloud",
+      "context": null,
+      "price_in": null,
+      "price_out": null,
+      "note": "polyvalent tres rapide — compte gratuit requis (id best-effort)"
+    }
   ]
 }

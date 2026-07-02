@@ -17,6 +17,7 @@ User terminal
   -> core/secrets              resolve provider key + proxy master key from the store
   -> core/env                  reset, then set ANTHROPIC_* on the process
   -> core/launch               spawn claude (or `ollama launch claude`)
+  -> back to the TUI picker    when claude exits or a prerequisite fails (hub loop)
 ```
 
 For direct Anthropic-compatible providers:
