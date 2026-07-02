@@ -1,21 +1,28 @@
+import { spawnSync } from 'node:child_process';
 import { render } from 'ink';
 import type { Provider } from '../types/provider.types.js';
 import { loadAllProviders } from '../core/providers.js';
-import { launch, releaseStdin } from '../core/launch.js';
+import { launch, releaseStdin, runNpm } from '../core/launch.js';
 import { ensureProxyForProvider } from '../core/proxy.js';
-import { ensureClaude, ensureLitellm, ensureOllamaModel, ensureProviderKey } from '../prompt.js';
-import { App, type Choice } from './App.js';
+import { pipCommand } from '../prompt.js';
+import { App, type Choice, type Intent } from './App.js';
 
-/** One picker round: render the TUI, resolve with the choice (null = quit). */
-async function pickChoice(providers: Provider[], initialProvider: Provider | null): Promise<Choice | null> {
-  const picked: { choice: Choice | null } = { choice: null };
+interface SessionState {
+  provider: Provider | null;
+  retryChoice: Choice | null;
+}
+
+/** One Ink session: render the TUI, resolve with the intent (null = quit). */
+async function session(providers: Provider[], state: SessionState): Promise<Intent | null> {
+  const resolved: { intent: Intent | null } = { intent: null };
   let app: ReturnType<typeof render>;
   app = render(
     <App
       providers={providers}
-      initialProvider={initialProvider}
-      onChoose={(c) => {
-        picked.choice = c;
+      initialProvider={state.provider}
+      initialChoice={state.retryChoice}
+      onIntent={(intent) => {
+        resolved.intent = intent;
         app.unmount();
       }}
       onQuit={() => {
@@ -24,39 +31,63 @@ async function pickChoice(providers: Provider[], initialProvider: Provider | nul
     />,
   );
   // Barrier: wait until Ink has FULLY torn down (terminal restored, its stdin
-  // input listeners removed) before any readline prompt or child spawn.
-  // Resolving on unmount() alone left stdin half-owned by Ink, so the
-  // dependency [o/N] install prompt (e.g. LiteLLM) never received the keypress
-  // and hung. waitUntilExit() resolves only after teardown completes.
+  // listeners removed) before any child inherits the console.
   await app.waitUntilExit();
-  // Ink can leave raw mode half-torn-down; reset it. Readline resumes the
-  // stream itself when a prompt attaches, so stdin stays paused here — a
-  // flowing stdin would keep a console read pending that later steals the
-  // launched claude's first keystrokes (launch() releases it again pre-spawn).
+  // Reset raw mode and stop reading stdin: a lingering parent console read
+  // steals the next reader's keystrokes on Windows (launch() does it again
+  // pre-spawn, belt and braces).
   releaseStdin();
-  return picked.choice;
+  return resolved.intent;
 }
 
 /**
- * Interactive hub: pick -> launch -> when claude exits (or a prerequisite
- * fails / is declined), come back to the picker instead of dying to the shell.
- * The picker reopens on the provider the user was in; quitting the picker
- * (q / Esc) is the only way out.
+ * Interactive hub. Everything that READS stdin happens inside Ink (picker,
+ * [o/N] dialogs, key input) — a readline prompt after an Ink teardown loses
+ * keystrokes on Windows. Console-bound ACTIONS (npm/pip installs, ollama pull,
+ * proxy boot, claude itself) run between Ink sessions, then the TUI comes back
+ * where the user was: after claude exits, after an install, after a decline.
+ * Quitting the picker (q / Esc) is the only way out.
  */
 export async function runTui(): Promise<void> {
   const providers = loadAllProviders();
-  let lastProvider: Provider | null = null;
+  const state: SessionState = { provider: null, retryChoice: null };
   for (;;) {
-    const choice = await pickChoice(providers, lastProvider);
-    if (!choice) return;
-    lastProvider = choice.provider;
-    // Prerequisite failures already printed their message; back to the picker.
-    if (!(await ensureClaude())) continue;
-    if (!(await ensureProviderKey(choice.provider))) continue;
-    if (choice.provider.type === 'litellm' && !(await ensureLitellm())) continue;
-    if (!(await ensureProxyForProvider(choice.provider.type))) continue;
-    if (choice.provider.type === 'ollama' && !(await ensureOllamaModel(choice.model))) continue;
-    launch(choice.provider, choice.model, []);
-    // claude exited -> loop back to the picker, right where the user was.
+    const intent = await session(providers, state);
+    if (!intent) return;
+    const { choice } = intent;
+    state.provider = choice.provider;
+    state.retryChoice = null;
+    switch (intent.kind) {
+      case 'install':
+        if (intent.tool === 'claude') {
+          runNpm(['i', '-g', '@anthropic-ai/claude-code']);
+        } else {
+          const pip = pipCommand();
+          if (!pip) {
+            console.error('pip introuvable — installe Python (python.org) puis : pip install "litellm[proxy]"');
+            break; // back to the picker, no retry possible
+          }
+          const install = spawnSync(pip.cmd, [...pip.prefix, 'install', 'litellm[proxy]'], { stdio: 'inherit' });
+          if (install.error || install.status !== 0) {
+            console.error('Echec de pip. Install manuelle : pip install "litellm[proxy]"');
+            break;
+          }
+        }
+        state.retryChoice = choice; // re-check the same choice, then launch
+        break;
+      case 'pull': {
+        const pull = spawnSync('ollama', ['pull', choice.model], { stdio: 'inherit' });
+        if (pull.error || (pull.status !== null && pull.status !== 0)) {
+          console.error(`Echec du pull de '${choice.model}'.`);
+          break;
+        }
+        state.retryChoice = choice;
+        break;
+      }
+      case 'launch':
+        if (!(await ensureProxyForProvider(choice.provider.type))) break;
+        launch(choice.provider, choice.model, []);
+        break;
+    }
   }
 }

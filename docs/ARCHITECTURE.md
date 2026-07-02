@@ -20,6 +20,13 @@ User terminal
   -> back to the TUI picker    when claude exits or a prerequisite fails (hub loop)
 ```
 
+TUI invariant: everything that READS stdin lives inside Ink (picker, [o/N]
+dialogs, key input). A readline prompt after an Ink teardown loses keystrokes
+on Windows (cancelled raw console read), so readline prompts exist only on the
+direct CLI path (`nexus <provider>`), where Ink never ran. Console-bound
+actions (npm/pip installs, ollama pull, proxy boot, claude) run BETWEEN Ink
+sessions with an inherited terminal.
+
 For direct Anthropic-compatible providers:
 
 ```text
