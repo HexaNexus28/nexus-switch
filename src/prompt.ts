@@ -10,7 +10,7 @@ import { litellmExists } from './core/proxy.js';
  * `python` is on PATH: a fresh Windows box often has only the `py` launcher, or
  * exposes `python3`. Try `pip` directly, then `<interpreter> -m pip`.
  */
-function pipCommand(): { cmd: string; prefix: string[] } | null {
+export function pipCommand(): { cmd: string; prefix: string[] } | null {
   const probe = process.platform === 'win32' ? 'where' : 'which';
   if (spawnSync(probe, ['pip'], { stdio: 'ignore' }).status === 0) return { cmd: 'pip', prefix: [] };
   const candidates: ReadonlyArray<{ cmd: string; prefix: string[] }> = [
@@ -66,6 +66,16 @@ function ollamaInstalledModels(): Set<string> | null {
 function ollamaHasModel(model: string, installed: Set<string>): boolean {
   if (installed.has(model)) return true;
   return !model.includes(':') && installed.has(`${model}:latest`);
+}
+
+/**
+ * Pure check for the TUI: does this LOCAL model need an `ollama pull` first?
+ * Cloud models and an unreachable ollama both pass (launch() reports those).
+ */
+export function ollamaModelMissing(model: string): boolean {
+  if (model.endsWith(':cloud')) return false;
+  const installed = ollamaInstalledModels();
+  return installed !== null && !ollamaHasModel(model, installed);
 }
 
 /**

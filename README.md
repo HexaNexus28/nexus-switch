@@ -1,14 +1,8 @@
-```
-            ╭────────────────────╮
-            │   N E X U S        ├─●
-        ╭───┼────────────────╮   ├─●
-      ●─┤   ╰────────────────┼───╯
-      ●─┤    S W I T C H     │
-        ╰────────────────────╯
-        HexaNexus  ·  AI Model Router
-```
-
 <div align="center">
+
+# ◢ NEXUS SWITCH
+
+**AI model router · by HexaNexus**
 
 [![npm version](https://img.shields.io/npm/v/@hexanexus/nexus-switch)](https://www.npmjs.com/package/@hexanexus/nexus-switch)
 [![CI](https://github.com/HexaNexus28/nexus-switch/actions/workflows/ci.yml/badge.svg)](https://github.com/HexaNexus28/nexus-switch/actions)
@@ -44,6 +38,26 @@ nexus ollama          # local or cloud Ollama model
 nexus openrouter      # OpenRouter free-tier models
 ```
 
+The TUI is a hub: models are sorted cheapest-first, every row carries its
+billing tier, and the highlighted model's real cost is spelled out before you
+launch anything. When claude exits, you land back in the picker — not in the
+shell.
+
+```text
+ ◢ NEXUS SWITCH                              v1.3.1 · proxy ● :4000
+
+ Groq (via LiteLLM proxy)  ·  9 modeles
+ ────────────────────────────────────────────────────────────────
+ ▸ ● QUOTA   Llama 3.3 70B Versatile   cloud · 131K · $0.59/0.79
+   ● QUOTA   GPT-OSS 120B              cloud · 131K · $0.15/0.6
+   ● QUOTA   Qwen3 32B                 cloud · 131K · $0.29/0.59
+
+ ▍ Gratuit jusqu'au quota (compte groq gratuit requis)
+   — au-delà : $0.59 in / $0.79 out par M tokens.
+
+ ↑↓ naviguer · ⏎ lancer · ← providers · q quitter
+```
+
 ## Providers
 
 | Provider | Free tier | Account | Notes |
@@ -55,13 +69,17 @@ nexus openrouter      # OpenRouter free-tier models
 | **NVIDIA NIM** | ✅ 1000 credits | Required | `nexus key set nvidia <key>` |
 | **OpenRouter** | ✅ 50 req/day | Required | `nexus key set openrouter <key>` |
 | **Ollama local** | ✅ unlimited | None | `ollama pull <model>` |
-| **Ollama cloud** | ✅ quota | Required | `ollama signin` |
+| **Ollama cloud** | ✅ quota (some models Pro-only) | Required | `ollama signin` |
 | **Anthropic** | ❌ paid | Required | `nexus key set anthropic <key>` |
 
-The TUI shows each model's tier clearly:
-- **`GRATUIT`** (green) — truly free, no account needed
-- **`COMPTE`** (yellow) — free but requires a provider account
-- **`PAYANT`** (gray) — billed per token
+The TUI labels every model's billing tier, and the picker explains the
+highlighted model's cost in plain words:
+- **`GRATUIT`** (green) — runs locally, no account, never billed
+- **`QUOTA`** (yellow) — free provider account required; free up to a usage
+  quota, then blocked or billed
+- **`PAYANT`** (red) — billed per token from the first request
+- **`UPGRADE`** (magenta) — unusable without a paid subscription (e.g. some
+  Ollama cloud models 403 on a free account)
 
 ## Commands
 

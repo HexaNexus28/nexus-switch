@@ -1,4 +1,4 @@
-import test, { mock } from 'node:test';
+﻿import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import * as childProcess from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -36,14 +36,14 @@ const ollama = (): Provider => ({
   type: 'ollama',
   name: 'Ollama',
   default: 'llama3',
-  models: [{ id: 'llama3', name: 'Llama 3', free: true, location: 'local' }],
+  models: [{ id: 'llama3', name: 'Llama 3', tier: 'free', location: 'local' }],
 });
 
 const openrouter = (): Provider => ({
   type: 'openrouter',
   name: 'OpenRouter',
   default: 'openrouter/owl-alpha',
-  models: [{ id: 'openrouter/owl-alpha', name: 'Owl', free: true, location: 'cloud' }],
+  models: [{ id: 'openrouter/owl-alpha', name: 'Owl', tier: 'quota', location: 'cloud' }],
   env: {
     ANTHROPIC_BASE_URL: 'https://openrouter.ai/api',
     ANTHROPIC_AUTH_TOKEN: '${OPENROUTER_API_KEY}',
