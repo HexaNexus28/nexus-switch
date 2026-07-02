@@ -1,14 +1,8 @@
-```
-            ╭────────────────────╮
-            │   N E X U S        ├─●
-        ╭───┼────────────────╮   ├─●
-      ●─┤   ╰────────────────┼───╯
-      ●─┤    S W I T C H     │
-        ╰────────────────────╯
-        HexaNexus  ·  AI Model Router
-```
-
 <div align="center">
+
+# ◢ NEXUS SWITCH
+
+**AI model router · by HexaNexus**
 
 [![npm version](https://img.shields.io/npm/v/@hexanexus/nexus-switch)](https://www.npmjs.com/package/@hexanexus/nexus-switch)
 [![CI](https://github.com/HexaNexus28/nexus-switch/actions/workflows/ci.yml/badge.svg)](https://github.com/HexaNexus28/nexus-switch/actions)
@@ -42,6 +36,26 @@ nexus                 # interactive TUI — pick provider and model
 nexus groq            # launch directly on Groq (free tier)
 nexus ollama          # local or cloud Ollama model
 nexus openrouter      # OpenRouter free-tier models
+```
+
+The TUI is a hub: models are sorted cheapest-first, every row carries its
+billing tier, and the highlighted model's real cost is spelled out before you
+launch anything. When claude exits, you land back in the picker — not in the
+shell.
+
+```text
+ ◢ NEXUS SWITCH                              v1.3.1 · proxy ● :4000
+
+ Groq (via LiteLLM proxy)  ·  9 modeles
+ ────────────────────────────────────────────────────────────────
+ ▸ ● QUOTA   Llama 3.3 70B Versatile   cloud · 131K · $0.59/0.79
+   ● QUOTA   GPT-OSS 120B              cloud · 131K · $0.15/0.6
+   ● QUOTA   Qwen3 32B                 cloud · 131K · $0.29/0.59
+
+ ▍ Gratuit jusqu'au quota (compte groq gratuit requis)
+   — au-delà : $0.59 in / $0.79 out par M tokens.
+
+ ↑↓ naviguer · ⏎ lancer · ← providers · q quitter
 ```
 
 ## Providers
