@@ -5,22 +5,45 @@ name: CI
 # ship a version. The unit suite mocks spawn; the e2e suite drives the real
 # binary against fake tools; the docker job proves a bare machine (no python).
 #
-# paths-ignore: a release PR only bumps package.json/package-lock.json — the
-# code it ships was already tested in its feature PR, so re-running the full
-# matrix is redundant. Trade-off: a pure dependency-bump PR skips CI too;
-# publish.yml still runs `npm ci` + the prepare build, which catches a broken
-# install before anything reaches npm.
+# Release PRs only bump package.json/package-lock.json — the code they ship was
+# already tested in its feature PR, so the matrix is skipped for them. NOT via
+# `on.paths-ignore`: the main ruleset REQUIRES the five job contexts, and a
+# workflow that never triggers leaves them "Expected" forever, blocking the
+# merge. Instead the `changes` gate always runs and the jobs self-skip —
+# skipped required checks count as satisfied. Trade-off: a pure dependency-bump
+# PR skips the matrix too; publish.yml still runs `npm ci` + the prepare build
+# as a net before anything reaches npm.
 on:
   pull_request:
     branches: [main]
-    paths-ignore:
-      - 'package.json'
-      - 'package-lock.json'
   workflow_dispatch:
 
 jobs:
+  changes:
+    name: changes (release bump?)
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code || 'true' }}
+    steps:
+      - name: Detect non-bump changes
+        id: filter
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FILES=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" --paginate --jq '.[].filename')
+          echo "changed files:"; echo "$FILES"
+          if echo "$FILES" | grep -qvE '^(package\.json|package-lock\.json)$'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+            echo "version bump only -> test matrix skipped"
+          fi
+
   unit:
     name: unit (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -37,6 +60,8 @@ jobs:
 
   e2e:
     name: e2e (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -52,6 +77,8 @@ jobs:
 
   fresh-user:
     name: fresh-user (bare node, no python)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
