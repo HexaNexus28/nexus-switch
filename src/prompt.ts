@@ -150,7 +150,11 @@ export async function ensureLitellm(): Promise<boolean> {
     console.error('Abandon. Install manuelle : pip install "litellm[proxy]"');
     return false;
   }
-  spawnSync(pip.cmd, [...pip.prefix, 'install', 'litellm[proxy]'], { stdio: 'inherit' });
+  const install = spawnSync(pip.cmd, [...pip.prefix, 'install', 'litellm[proxy]'], { stdio: 'inherit' });
+  if (install.error || install.status !== 0) {
+    console.error('Echec de pip. Install manuelle : pip install "litellm[proxy]"');
+    return false;
+  }
   if (litellmExists()) return true;
   console.error('LiteLLM installe mais introuvable. Ajoute le dossier Scripts de Python au PATH, puis relance nexus.');
   return false;
