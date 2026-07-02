@@ -14,6 +14,7 @@ const ANTHROPIC_OVERRIDES = [
   'ANTHROPIC_MODEL',
   'MAX_THINKING_TOKENS',
   'CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING',
+  'CLAUDE_CODE_EFFORT_LEVEL',
 ] as const;
 
 /**
@@ -58,12 +59,19 @@ export function applyProviderEnv(provider: Provider, model: string): void {
   // Non-Anthropic-native models (Groq via LiteLLM, OpenRouter owl-alpha, ...)
   // reject Anthropic-native fields:
   //   thinking_blocks  -> disabled by MAX_THINKING_TOKENS=0
-  //   output_config    -> the adaptive-thinking effort field; killed by disabling
-  //                       adaptive thinking (reverts to the fixed budget).
+  //   output_config    -> effort is emitted whenever claude believes the model
+  //                       supports it (unknown model + first-party transport =>
+  //                       yes) and a settings effortLevel is set. EFFORT_LEVEL
+  //                       "unset" overrides settings and suppresses the field.
+  //                       LiteLLM's additional_drop_params can't catch it: the
+  //                       /v1/messages bridge forwards unknown body fields.
+  // DISABLE_ADAPTIVE_THINKING is dead weight on claude >= 2.1.x (only honored
+  // for *-4-6 models) but kept for older installs where it was the mechanism.
   // Keyed on the MODEL, not the transport: OpenRouter also serves non-claude
   // models directly and would 400 exactly like Groq (cf. claude-code #33506).
   if (!isAnthropicNative(provider.type, model)) {
     process.env.MAX_THINKING_TOKENS = '0';
     process.env.CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING = '1';
+    process.env.CLAUDE_CODE_EFFORT_LEVEL = 'unset';
   }
 }
