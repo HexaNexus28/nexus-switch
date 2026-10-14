@@ -1,12 +1,11 @@
 import { refreshOllama, refreshOpenRouter } from './core/catalog.js';
-import { litellmKeyStatus, openRouterCredits } from './core/credits.js';
+import { gatewayKeyStatus, openRouterCredits } from './core/credits.js';
 import { runDoctor } from './core/doctor.js';
 import { KEY_VARS, keyVarFor, readKey, setKey } from './core/keys.js';
 import { launch, runNpm } from './core/launch.js';
 import { listProviders, loadProvider } from './core/providers.js';
-import { ensureProxyForProvider, restartProxy, startProxy, stopProxy } from './core/proxy.js';
 import { migrateLegacyEnv, purgeLegacyEnv, wipeSecretStore } from './core/secrets.js';
-import { ensureClaude, ensureLitellm, ensureOllamaModel, ensureProviderKey } from './prompt.js';
+import { ensureClaude, ensureOllamaModel, ensureProviderKey } from './prompt.js';
 
 function mark(ok: boolean): string {
   return ok ? 'OK' : 'KO';
@@ -74,48 +73,24 @@ async function cmdLaunch(name: string, rest: string[]): Promise<void> {
     process.exitCode = 1;
     return;
   }
-  if (provider.type === 'litellm' && !(await ensureLitellm())) {
-    process.exitCode = 1;
-    return;
-  }
-  if (!(await ensureProxyForProvider(provider.type))) {
-    process.exitCode = 1;
-    return;
-  }
   const hasModel = Boolean(rest[0]) && !rest[0]!.startsWith('-');
   const model = hasModel ? rest[0]! : provider.default;
-  const passthrough = hasModel ? rest.slice(1) : rest;
+  // Drop the optional `--` separator: the documented form is
+  // `nexus <provider> [model] [-- claude flags]`, and forwarding the literal
+  // `--` makes claude treat the flags as positional args (so `nexus groq -- -p
+  // "..."` silently fell back to an interactive session instead of printing).
+  const tail = hasModel ? rest.slice(1) : rest;
+  const passthrough = tail[0] === '--' ? tail.slice(1) : tail;
   if (provider.type === 'ollama' && !(await ensureOllamaModel(model))) {
     process.exitCode = 1;
     return;
   }
-  launch(provider, model, passthrough);
-}
-
-async function cmdProxy(args: string[]): Promise<void> {
-  const sub = args[0];
-  if (sub === 'start') {
-    if (await startProxy()) console.log('Proxy LiteLLM pret sur :4000');
-    else process.exitCode = 1;
-    return;
-  }
-  if (sub === 'stop') {
-    stopProxy();
-    console.log('Proxy LiteLLM arrete.');
-    return;
-  }
-  if (sub === 'restart') {
-    if (await restartProxy()) console.log('Proxy LiteLLM redemarre sur :4000');
-    else process.exitCode = 1;
-    return;
-  }
-  console.error('Usage: nexus proxy start|stop|restart');
-  process.exitCode = 1;
+  await launch(provider, model, passthrough);
 }
 
 async function cmdCredits(): Promise<void> {
   console.log(`OpenRouter : ${await openRouterCredits()}`);
-  for (const { provider, present } of litellmKeyStatus()) {
+  for (const { provider, present } of gatewayKeyStatus()) {
     console.log(`${provider.padEnd(10)} : ${present ? 'cle presente' : 'absente'}`);
   }
   console.log('Ollama     : local illimite · cloud quota (https://ollama.com/dashboard)');
@@ -126,9 +101,8 @@ function cmdUpdate(): void {
 }
 
 function cmdUninstall(): void {
-  // Leave nothing behind: stop the detached proxy, wipe the store, and purge
-  // any residual global env vars from the pre-store era.
-  stopProxy();
+  // Leave nothing behind: wipe the store and purge any residual global env vars
+  // from the pre-store era.
   wipeSecretStore();
   for (const varName of [...Object.values(KEY_VARS), 'NEXUS_PROXY_KEY']) purgeLegacyEnv(varName);
   console.log('Secrets et config supprimes (~/.nexus-switch + env global purge).');
@@ -148,7 +122,6 @@ function cmdHelp(): void {
       '  nexus refresh',
       '  nexus key set <provider> <key>',
       '  nexus key list',
-      '  nexus proxy start|stop|restart',
       '  nexus update | uninstall',
       '',
       `Providers : ${listProviders().join(', ')}`,
@@ -185,9 +158,6 @@ async function main(): Promise<void> {
       break;
     case 'key':
       cmdKey(rest);
-      break;
-    case 'proxy':
-      await cmdProxy(rest);
       break;
     case 'credits':
       await cmdCredits();

@@ -1,12 +1,11 @@
 {
-  "type": "litellm",
-  "name": "Mistral AI (via LiteLLM)",
+  "type": "gateway",
+  "name": "Mistral AI",
   "default": "mistral/devstral-2",
   "setup": "nexus key set mistral <cle> (console.mistral.ai). Compte requis, sans CB. Tier gratuit experimental avec restrictions. Source : mistral.ai/pricing",
-  "env": {
-    "ANTHROPIC_BASE_URL": "http://127.0.0.1:4000",
-    "ANTHROPIC_AUTH_TOKEN": "${NEXUS_PROXY_KEY}",
-    "ANTHROPIC_API_KEY": ""
+  "api": {
+    "base_url": "https://api.mistral.ai/v1",
+    "model_prefix": "mistral/"
   },
   "models": [
     {

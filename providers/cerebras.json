@@ -1,12 +1,11 @@
 {
-  "type": "litellm",
-  "name": "Cerebras (via LiteLLM)",
+  "type": "gateway",
+  "name": "Cerebras",
   "default": "cerebras/gpt-oss-120b",
   "setup": "nexus key set cerebras <cle> (cloud.cerebras.ai). Compte requis, sans CB. Tier gratuit ~1M tokens/jour. Source : inference-docs.cerebras.ai/models",
-  "env": {
-    "ANTHROPIC_BASE_URL": "http://127.0.0.1:4000",
-    "ANTHROPIC_AUTH_TOKEN": "${NEXUS_PROXY_KEY}",
-    "ANTHROPIC_API_KEY": ""
+  "api": {
+    "base_url": "https://api.cerebras.ai/v1",
+    "model_prefix": "cerebras/"
   },
   "models": [
     {

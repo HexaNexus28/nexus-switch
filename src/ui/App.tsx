@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import type { Provider } from '../types/provider.types.js';
 import { keyVarFor, readKey, setKey } from '../core/keys.js';
 import { claudeExists } from '../core/launch.js';
-import { litellmExists } from '../core/proxy.js';
 import { ollamaModelMissing } from '../prompt.js';
 import { Confirm } from './Confirm.js';
 import { Header } from './Header.js';
@@ -25,7 +24,7 @@ export interface Choice {
  */
 export type Intent =
   | { kind: 'launch'; choice: Choice }
-  | { kind: 'install'; tool: 'claude' | 'litellm'; choice: Choice }
+  | { kind: 'install'; tool: 'claude'; choice: Choice }
   | { kind: 'pull'; choice: Choice };
 
 interface Props {
@@ -68,16 +67,6 @@ export function App({ providers, initialProvider, initialChoice, onIntent, onQui
     const varName = choice.provider.id ? keyVarFor(choice.provider.id) : undefined;
     if (varName && !readKey(varName)) {
       setStage({ kind: 'key', choice, varName });
-      return;
-    }
-    if (choice.provider.type === 'litellm' && !litellmExists()) {
-      setStage({
-        kind: 'confirm',
-        title: 'LiteLLM absent',
-        message: `${choice.provider.name} passe par le gateway LiteLLM (local, gratuit). Installer maintenant via pip ?`,
-        command: 'pip install "litellm[proxy]"',
-        intent: { kind: 'install', tool: 'litellm', choice },
-      });
       return;
     }
     if (choice.provider.type === 'ollama' && ollamaModelMissing(choice.model)) {

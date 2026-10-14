@@ -1,6 +1,7 @@
 ﻿import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import * as childProcess from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -10,7 +11,7 @@ const dataDir = mkdtempSync(join(tmpdir(), 'nexus-launch-'));
 process.env.NEXUS_DATA_DIR = dataDir;
 process.env.NEXUS_SECRETS_PLAINTEXT = '1';
 
-// Record every spawnSync call instead of really launching ollama/claude.
+// Record every spawn/spawnSync call instead of really launching ollama/claude.
 // This is the no-DI seam: we replace the module, not inject a dependency.
 interface SpawnCall {
   cmd: string;
@@ -24,7 +25,16 @@ mock.module('node:child_process', {
       calls.push({ cmd, args });
       return { status: 0 };
     },
-    spawn: () => ({ unref() {} }),
+    // claude is launched with an async spawn (the in-process gateway must keep
+    // serving while it runs), so the fake child is a real emitter: it records
+    // synchronously and reports a clean exit on the next tick.
+    spawn: (cmd: string, args: readonly string[] = []) => {
+      calls.push({ cmd, args });
+      const child = new EventEmitter() as EventEmitter & { unref(): void };
+      child.unref = () => {};
+      process.nextTick(() => child.emit('exit', 0, null));
+      return child;
+    },
   },
 });
 
@@ -42,8 +52,8 @@ const ollama = (): Provider => ({
 const openrouter = (): Provider => ({
   type: 'openrouter',
   name: 'OpenRouter',
-  default: 'openrouter/owl-alpha',
-  models: [{ id: 'openrouter/owl-alpha', name: 'Owl', tier: 'quota', location: 'cloud' }],
+  default: 'nvidia/nemotron-3.5-lightning:free',
+  models: [{ id: 'nvidia/nemotron-3.5-lightning:free', name: 'Nemotron', tier: 'quota', location: 'cloud' }],
   env: {
     ANTHROPIC_BASE_URL: 'https://openrouter.ai/api',
     ANTHROPIC_AUTH_TOKEN: '${OPENROUTER_API_KEY}',
@@ -69,14 +79,14 @@ test('ollama: forwards passthrough flags after `--`', () => {
 
 test('openrouter: builds the Anthropic env from the store, then spawns claude', () => {
   calls.length = 0;
-  launch(openrouter(), 'openrouter/owl-alpha', ['-p', 'hello']);
+  launch(openrouter(), 'nvidia/nemotron-3.5-lightning:free', ['-p', 'hello']);
   // Correct binary + passthrough args.
   assert.equal(calls[0]!.cmd, 'claude');
   assert.deepEqual(calls[0]!.args, ['-p', 'hello']);
   // Env wired correctly for the child claude to reach OpenRouter.
   assert.equal(process.env.ANTHROPIC_BASE_URL, 'https://openrouter.ai/api');
   assert.equal(process.env.ANTHROPIC_AUTH_TOKEN, 'or-key');
-  assert.equal(process.env.ANTHROPIC_MODEL, 'openrouter/owl-alpha');
+  assert.equal(process.env.ANTHROPIC_MODEL, 'nvidia/nemotron-3.5-lightning:free');
   assert.equal(process.env.MAX_THINKING_TOKENS, '0'); // non-claude => thinking disabled
 });
 

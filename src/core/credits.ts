@@ -28,8 +28,8 @@ export async function openRouterCredits(): Promise<string> {
   }
 }
 
-/** Key-presence summary for the LiteLLM-backed providers. */
-export function litellmKeyStatus(): { provider: string; present: boolean }[] {
+/** Key-presence summary for the gateway-typed providers. */
+export function gatewayKeyStatus(): { provider: string; present: boolean }[] {
   return (['groq', 'gemini', 'cerebras', 'mistral', 'nvidia'] as const).map((provider) => ({
     provider,
     present: Boolean(readKey(KEY_VARS[provider] ?? '')),

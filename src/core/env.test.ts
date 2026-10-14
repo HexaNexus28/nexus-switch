@@ -43,7 +43,7 @@ test('isAnthropicNative: native anthropic + claude (bare and gateway-prefixed) a
 
 test('isAnthropicNative: non-claude models are NOT native (C1 covers OpenRouter too)', () => {
   assert.equal(isAnthropicNative('openrouter', 'openrouter/owl-alpha'), false);
-  assert.equal(isAnthropicNative('litellm', 'groq/llama-3.3-70b-versatile'), false);
+  assert.equal(isAnthropicNative('gateway', 'groq/llama-3.3-70b-versatile'), false);
 });
 
 test('OpenRouter non-claude: env resolved from store + thinking disabled', () => {

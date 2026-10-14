@@ -3,8 +3,6 @@ import { render } from 'ink';
 import type { Provider } from '../types/provider.types.js';
 import { loadAllProviders } from '../core/providers.js';
 import { launch, releaseStdin, runNpm } from '../core/launch.js';
-import { ensureProxyForProvider } from '../core/proxy.js';
-import { pipCommand } from '../prompt.js';
 import { App, type Choice, type Intent } from './App.js';
 
 interface SessionState {
@@ -59,20 +57,7 @@ export async function runTui(): Promise<void> {
     state.retryChoice = null;
     switch (intent.kind) {
       case 'install':
-        if (intent.tool === 'claude') {
-          runNpm(['i', '-g', '@anthropic-ai/claude-code']);
-        } else {
-          const pip = pipCommand();
-          if (!pip) {
-            console.error('pip introuvable — installe Python (python.org) puis : pip install "litellm[proxy]"');
-            break; // back to the picker, no retry possible
-          }
-          const install = spawnSync(pip.cmd, [...pip.prefix, 'install', 'litellm[proxy]'], { stdio: 'inherit' });
-          if (install.error || install.status !== 0) {
-            console.error('Echec de pip. Install manuelle : pip install "litellm[proxy]"');
-            break;
-          }
-        }
+        runNpm(['i', '-g', '@anthropic-ai/claude-code']);
         state.retryChoice = choice; // re-check the same choice, then launch
         break;
       case 'pull': {
@@ -85,8 +70,7 @@ export async function runTui(): Promise<void> {
         break;
       }
       case 'launch':
-        if (!(await ensureProxyForProvider(choice.provider.type))) break;
-        launch(choice.provider, choice.model, []);
+        await launch(choice.provider, choice.model, []);
         break;
     }
   }

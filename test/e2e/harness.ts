@@ -3,7 +3,7 @@
 // The unit suite mocks `spawnSync`, so it is blind by construction to the bugs
 // that actually bite users: silent exit from a dirtied stdin/TTY, and tool
 // detection across python/pip layouts. These tests run the compiled CLI for
-// real and stub the external binaries (claude / pip / litellm) by prepending a
+// real and stub the external binaries (claude / python) by prepending a
 // throwaway bin dir to PATH — no code change needed, since the CLI resolves
 // every tool via where/which + spawn. State is isolated through NEXUS_DATA_DIR.
 
@@ -95,24 +95,133 @@ function claudeRecorderBody(logPath: string): string {
  * buildChildEnv through a marker file), guarded so only the claude.exe run acts.
  */
 export function installClaudeStub(binDir: string, logPath: string): void {
-  mkdirSync(binDir, { recursive: true });
-  const body = claudeRecorderBody(logPath);
+  installClaudeBody(binDir, 'claude-stub', claudeRecorderBody(logPath));
+}
+
+/**
+ * Install a fake `claude` that runs `body` (a CommonJS Node script) instead of
+ * the real CLI: POSIX gets a shebang launcher, Windows a node.exe hardlink plus
+ * a NODE_OPTIONS hook (see installClaudeStub).
+ */
+function installClaudeBody(binDir: string, hookName: string, body: string): void {
   if (process.platform !== 'win32') {
     writeStub(binDir, 'claude', body);
     return;
   }
+  mkdirSync(binDir, { recursive: true });
   linkNodeAs(binDir, 'claude.exe');
-  const hook = join(binDir, 'claude-stub.cjs');
+  const hook = join(binDir, `${hookName}.cjs`);
   writeFileSync(hook, body);
-  // NODE_OPTIONS treats backslash as an escape, so a Windows path silently loses
-  // its separators (C:\a\b -> C:ab -> MODULE_NOT_FOUND, crashing the parent).
-  // Forward slashes are valid for --require on Windows and survive the parsing.
-  writeFileSync(join(binDir, '.node-options'), `--require "${hook.replace(/\\/g, '/')}"`);
+  appendNodeRequire(binDir, hook);
 }
 
-/** A `litellm` stub: presence only (proxy is faked separately on :4000). */
-export function installLitellmStub(binDir: string): void {
-  writeStub(binDir, 'litellm', 'process.exit(0);');
+/**
+ * Install a fake claude that, instead of talking to a model, issues ONE real
+ * request to the gateway it inherited (`ANTHROPIC_BASE_URL`) and records how the
+ * gateway answered.
+ *
+ * Used with a deliberately wrong bearer token, so the expected answer is a 401
+ * from the gateway's own auth guard: that proves the gateway was alive and
+ * routing *while claude was running*, without touching the network. A gateway
+ * that cannot answer (e.g. a parent blocked in spawnSync) shows up as the
+ * timeout recorded here rather than as a hung suite.
+ */
+export function installClaudeProbe(binDir: string, logPath: string): void {
+  installClaudeBody(binDir, 'claude-probe', claudeProbeBody(logPath));
+}
+
+function claudeProbeBody(logPath: string): string {
+  return [
+    "const path = require('node:path');",
+    "const isWinHook = process.platform === 'win32';",
+    "if (!isWinHook || path.basename(process.execPath).toLowerCase() === 'claude.exe') {",
+    "  const fs = require('node:fs');",
+    "  const http = require('node:http');",
+    `  const LOG = ${JSON.stringify(logPath)};`,
+    '  const finish = (payload) => {',
+    '    try { fs.writeFileSync(LOG, JSON.stringify(payload)); } catch {}',
+    '    process.exit(0);',
+    '  };',
+    "  const base = process.env.ANTHROPIC_BASE_URL || '';",
+    "  if (!base) { finish({ error: 'ANTHROPIC_BASE_URL not set' }); }",
+    "  const target = new URL('/v1/messages', base);",
+    "  const payload = JSON.stringify({ model: 'probe', max_tokens: 1, messages: [{ role: 'user', content: 'ping' }] });",
+    '  const req = http.request(',
+    '    {',
+    '      hostname: target.hostname,',
+    '      port: target.port,',
+    '      path: target.pathname,',
+    "      method: 'POST',",
+    "      headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(payload), authorization: 'Bearer wrong-token' },",
+    '    },',
+    '    (res) => {',
+    '      res.resume();',
+    '      finish({ status: res.statusCode });',
+    '    },',
+    '  );',
+    "  req.on('error', (err) => finish({ error: err.message }));",
+    '  req.setTimeout(8000, () => {',
+    '    req.destroy();',
+    "    finish({ error: 'timeout: gateway never answered' });",
+    '  });',
+    '  req.write(payload);',
+    '  req.end();',
+    '}',
+  ].join('\n');
+}
+
+/**
+ * Append a `--require <hook>` to the bin dir's NODE_OPTIONS marker (created on
+ * first use), so several recorders can share one process.
+ *
+ * NODE_OPTIONS treats backslash as an escape, so a Windows path silently loses
+ * its separators (C:\a\b -> C:ab -> MODULE_NOT_FOUND, crashing the parent).
+ * Forward slashes are valid for --require on Windows and survive the parsing.
+ */
+function appendNodeRequire(binDir: string, hookPath: string): void {
+  mkdirSync(binDir, { recursive: true });
+  const marker = join(binDir, '.node-options');
+  const spec = `--require "${hookPath.replace(/\\/g, '/')}"`;
+  const existing = existsSync(marker) ? readFileSync(marker, 'utf8').trim() : '';
+  writeFileSync(marker, existing ? `${existing} ${spec}` : spec);
+}
+
+/**
+ * Record the argv nexus hands to `claude`, observed from INSIDE the nexus
+ * process by patching child_process.
+ *
+ * Why not read it off the stub: the Windows stub is a hardlink of node.exe
+ * (CreateProcess without a shell never resolves a `.cmd`), so node's own option
+ * parser eats any flag it also owns — `claude.exe -p bonjour` is read as
+ * `node -p bonjour` and `process.argv` no longer holds either token. That makes
+ * the stub blind to passthrough flags exactly where it matters. Patching the
+ * spawn call observes what nexus passed, identically on every platform, and
+ * `claude` resolving or exiting is left to whatever stub is installed.
+ */
+export function installSpawnRecorder(binDir: string, logPath: string): void {
+  const hook = join(binDir, 'spawn-recorder.cjs');
+  const body = [
+    "const cp = require('node:child_process');",
+    "const fs = require('node:fs');",
+    "const path = require('node:path');",
+    `const LOG = ${JSON.stringify(logPath)};`,
+    'const isClaude = (cmd) =>',
+    "  typeof cmd === 'string' && path.basename(cmd).toLowerCase().replace(/\\.exe$/, '') === 'claude';",
+    "for (const fn of ['spawnSync', 'spawn']) {",
+    '  const real = cp[fn];',
+    "  if (typeof real !== 'function') continue;",
+    '  cp[fn] = function (cmd, args, ...rest) {',
+    '    if (isClaude(cmd)) {',
+    '      try {',
+    "        fs.appendFileSync(LOG, JSON.stringify({ cmd, args: Array.isArray(args) ? args : [] }) + '\\n');",
+    '      } catch { /* recording is best-effort */ }',
+    '    }',
+    '    return real.apply(this, [cmd, args, ...rest]);',
+    '  };',
+    '}',
+  ].join('\n');
+  writeFileSync(hook, body);
+  appendNodeRequire(binDir, hook);
 }
 
 /** Hardlink the running node.exe into binDir under `exeName` (spawn-without-shell resolvable). */
@@ -127,7 +236,8 @@ function linkNodeAs(binDir: string, exeName: string): void {
 }
 
 /**
- * Neutralize the machine's real Python so litellm detection is hermetic:
+ * Neutralize the machine's real Python (legacy LiteLLM-path helper, kept for
+ * hermetic detection stubs):
  * pythonScriptDirs() asks python/python3/py where pip's script dirs live, which
  * finds a REAL off-PATH litellm on the dev box and breaks the "litellm absent"
  * scenario. On Windows the stubs must be .exe (spawn without shell never sees
@@ -187,7 +297,8 @@ function buildChildEnv(opts: { binDir?: string; dataDir: string; extraEnv?: Reco
   for (const name of SCRUBBED_VARS) delete env[name];
   if (opts.binDir) {
     env.PATH = opts.binDir + delimiter + (process.env.PATH ?? '');
-    // Windows claude stub injects itself via NODE_OPTIONS (see installClaudeStub).
+    // Windows stubs/recorders inject themselves via NODE_OPTIONS (see
+    // installClaudeStub / installSpawnRecorder).
     const marker = join(opts.binDir, '.node-options');
     if (existsSync(marker)) {
       const injected = readFileSync(marker, 'utf8').trim();

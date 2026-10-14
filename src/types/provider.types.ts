@@ -1,6 +1,8 @@
 // Provider catalog types — shape of providers/<name>.json.
 
-export type ProviderType = 'openrouter' | 'litellm' | 'ollama' | 'anthropic';
+import type { GatewayApi } from './gateway.types.js';
+
+export type ProviderType = 'openrouter' | 'gateway' | 'ollama' | 'anthropic';
 
 /** Where a model runs: downloaded and executed locally, or served by the provider. */
 export type ModelLocation = 'local' | 'cloud';
@@ -63,6 +65,8 @@ export interface Provider {
   models: ProviderModel[];
   /** Absent for Ollama (no Anthropic endpoint redirection). */
   env?: ProviderEnv;
+  /** Required for type 'gateway': upstream OpenAI-compatible endpoint. */
+  api?: GatewayApi;
   /** OpenRouter credits endpoint, when available. */
   credits_api?: string;
   /** Human-readable setup hint (e.g. LiteLLM proxy install). */
