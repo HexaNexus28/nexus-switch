@@ -398,7 +398,10 @@ export async function runNexusPty(args: string[], opts: PtyOptions): Promise<Pty
     cols: 100,
     rows: 30,
     cwd: repoRoot,
-    env: buildChildEnv(opts) as Record<string, string>,
+    // A PTY run stands for a user's terminal. Under CI (GitHub sets CI=true) Ink
+    // renders only the final frame on exit, so the TUI never draws the list the
+    // test answers to. CI=false is the is-in-ci opt-out.
+    env: { ...buildChildEnv(opts), CI: 'false' } as Record<string, string>,
   });
   const pending = [...(opts.respondTo ?? [])];
   const sends = new Set<NodeJS.Timeout>();
