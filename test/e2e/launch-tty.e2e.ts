@@ -10,9 +10,9 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { installClaudeStub, makeTempDir, runNexusPty } from './harness.js';
+import { installClaudeStub, makeTempDir, repoRoot, runNexusPty } from './harness.js';
 
 test('claude inherits an interactive TTY after a readline prompt', async (t) => {
   const dataDir = makeTempDir('nexus-e2e-pty-');
@@ -26,11 +26,12 @@ test('claude inherits an interactive TTY after a readline prompt', async (t) => 
       extraEnv: { NEXUS_E2E_CLAUDE_LOG: claudeLog },
       // No key set -> the launcher prompts for it; answering dirties stdin.
       respondTo: [{ match: /cle openrouter/i, send: 'or-secret\r' }],
+      settleMs: 300,
       until: () => existsSync(claudeLog),
       timeoutMs: 20_000,
     });
-    if (result === null) {
-      t.skip('node-pty has no prebuilt binary on this platform');
+    if ('skipped' in result) {
+      t.skip(result.skipped);
       return;
     }
     const seen = JSON.parse(readFileSync(claudeLog, 'utf8')) as { stdinIsTTY: boolean; baseUrl: string | null };
@@ -50,25 +51,36 @@ test('TUI hub: pick openrouter, enter key in Ink, claude launches', async (t) =>
   const dataDir = makeTempDir('nexus-e2e-tui-');
   const binDir = makeTempDir('nexus-e2e-bin-');
   const claudeLog = join(makeTempDir('nexus-e2e-log-'), 'claude.json');
+  const catalogDir = makeTempDir('nexus-e2e-catalog-');
   try {
     installClaudeStub(binDir, claudeLog);
+    // Hermetic catalog: one provider, so Enter selects OpenRouter without
+    // brittle down-arrow counting (the list gained Anthropic, and Ink only
+    // decodes one escape sequence per input chunk anyway).
+    mkdirSync(join(catalogDir, 'providers'), { recursive: true });
+    copyFileSync(join(repoRoot, 'providers', 'openrouter.json'), join(catalogDir, 'providers', 'openrouter.json'));
     const result = await runNexusPty([], {
       dataDir,
       binDir,
-      extraEnv: { NEXUS_E2E_CLAUDE_LOG: claudeLog },
+      extraEnv: { NEXUS_SWITCH_HOME: catalogDir, NEXUS_E2E_CLAUDE_LOG: claudeLog },
       respondTo: [
-        // Providers list -> last entry is OpenRouter (7 downs), enter.
-        { match: /choisis ta source/, send: '\x1b[B\x1b[B\x1b[B\x1b[B\x1b[B\x1b[B\x1b[B\r' },
-        // Model picker -> take the first model.
-        { match: /OpenRouter\s+·/, send: '\r' },
-        // In-Ink key prompt -> paste a key and validate.
-        { match: /Cle API openrouter absente/, send: 'or-secret\r' },
+        // Single-provider list -> select OpenRouter.
+        { match: /choisis ta source/, send: '\r' },
+        // Model picker -> take the first model. Match the footer, not the
+        // header: Ink inserts color codes between adjacent <Text> nodes.
+        { match: /⏎ lancer/, send: '\r' },
+        // In-Ink key prompt: Ink treats a multi-character paste as one input
+        // chunk, so the Enter must be a separate write (the prompt masks the
+        // key as "(9)" once all nine characters are in).
+        { match: /Cle API openrouter absente/, send: 'or-secret' },
+        { match: /\(9\)/, send: '\r' },
       ],
+      settleMs: 300,
       until: () => existsSync(claudeLog),
       timeoutMs: 25_000,
     });
-    if (result === null) {
-      t.skip('node-pty has no prebuilt binary on this platform');
+    if ('skipped' in result) {
+      t.skip(result.skipped);
       return;
     }
     assert.equal(result.exitCode, 0, `TUI flow never reached claude: ${result.output.slice(-600)}`);
@@ -78,6 +90,7 @@ test('TUI hub: pick openrouter, enter key in Ink, claude launches', async (t) =>
   } finally {
     rmSync(dataDir, { recursive: true, force: true });
     rmSync(binDir, { recursive: true, force: true });
+    rmSync(catalogDir, { recursive: true, force: true });
   }
 });
 
@@ -102,11 +115,12 @@ test('typed input reaches claude right after launch (no stolen first keystrokes)
         { match: /cle openrouter/i, send: 'or-secret\r' },
         { match: /CLAUDE_STUB_READY/, send: 'hello claude\r' },
       ],
+      settleMs: 300,
       until: () => existsSync(claudeLog),
       timeoutMs: 20_000,
     });
-    if (result === null) {
-      t.skip('node-pty has no prebuilt binary on this platform');
+    if ('skipped' in result) {
+      t.skip(result.skipped);
       return;
     }
     assert.equal(result.exitCode, 0, `stub never received the typed line: ${result.output.slice(-500)}`);

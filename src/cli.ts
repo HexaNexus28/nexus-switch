@@ -1,12 +1,12 @@
 import { refreshOllama, refreshOpenRouter } from './core/catalog.js';
-import { litellmKeyStatus, openRouterCredits } from './core/credits.js';
+import { gatewayKeyStatus, openRouterCredits } from './core/credits.js';
 import { runDoctor } from './core/doctor.js';
-import { KEY_VARS, keyVarFor, readKey, setKey } from './core/keys.js';
+import { deleteKey, KEY_VARS, keyVarFor, readKey, setKey } from './core/keys.js';
 import { launch, runNpm } from './core/launch.js';
 import { listProviders, loadProvider } from './core/providers.js';
-import { ensureProxyForProvider, restartProxy, startProxy, stopProxy } from './core/proxy.js';
-import { migrateLegacyEnv, purgeLegacyEnv, wipeSecretStore } from './core/secrets.js';
-import { ensureClaude, ensureLitellm, ensureOllamaModel, ensureProviderKey } from './prompt.js';
+import { migrateLegacyEnv, purgeLegacyEnv, purgeLegacyLitellm, wipeSecretStore } from './core/secrets.js';
+import { availableUpdate, refreshUpdateCache } from './core/update.js';
+import { ensureClaude, ensureOllamaModel, ensureProviderKey } from './prompt.js';
 
 function mark(ok: boolean): string {
   return ok ? 'OK' : 'KO';
@@ -55,7 +55,18 @@ function cmdKey(args: string[]): void {
     console.log(`${varName} enregistree dans ~/.nexus-switch.`);
     return;
   }
-  console.error('Usage: nexus key set <provider> <key>  |  nexus key list');
+  if (sub === 'delete' && provider) {
+    const varName = keyVarFor(provider);
+    if (!varName) {
+      console.error(`Provider non supporte : ${provider}`);
+      process.exitCode = 1;
+      return;
+    }
+    deleteKey(varName);
+    console.log(`${varName} supprimee de ~/.nexus-switch.`);
+    return;
+  }
+  console.error('Usage: nexus key set <provider> <cle> | nexus key list | nexus key delete <provider>');
   process.exitCode = 1;
 }
 
@@ -74,65 +85,45 @@ async function cmdLaunch(name: string, rest: string[]): Promise<void> {
     process.exitCode = 1;
     return;
   }
-  if (provider.type === 'litellm' && !(await ensureLitellm())) {
-    process.exitCode = 1;
-    return;
-  }
-  if (!(await ensureProxyForProvider(provider.type))) {
-    process.exitCode = 1;
-    return;
-  }
   const hasModel = Boolean(rest[0]) && !rest[0]!.startsWith('-');
   const model = hasModel ? rest[0]! : provider.default;
-  const passthrough = hasModel ? rest.slice(1) : rest;
+  // Drop the optional `--` separator: the documented form is
+  // `nexus <provider> [model] [-- claude flags]`, and forwarding the literal
+  // `--` makes claude treat the flags as positional args (so `nexus groq -- -p
+  // "..."` silently fell back to an interactive session instead of printing).
+  const tail = hasModel ? rest.slice(1) : rest;
+  const passthrough = tail[0] === '--' ? tail.slice(1) : tail;
   if (provider.type === 'ollama' && !(await ensureOllamaModel(model))) {
     process.exitCode = 1;
     return;
   }
-  launch(provider, model, passthrough);
-}
-
-async function cmdProxy(args: string[]): Promise<void> {
-  const sub = args[0];
-  if (sub === 'start') {
-    if (await startProxy()) console.log('Proxy LiteLLM pret sur :4000');
-    else process.exitCode = 1;
-    return;
-  }
-  if (sub === 'stop') {
-    stopProxy();
-    console.log('Proxy LiteLLM arrete.');
-    return;
-  }
-  if (sub === 'restart') {
-    if (await restartProxy()) console.log('Proxy LiteLLM redemarre sur :4000');
-    else process.exitCode = 1;
-    return;
-  }
-  console.error('Usage: nexus proxy start|stop|restart');
-  process.exitCode = 1;
+  const update = availableUpdate();
+  if (update) console.error(`nexus ${update} disponible -> nexus update`);
+  void refreshUpdateCache();
+  await launch(provider, model, passthrough);
 }
 
 async function cmdCredits(): Promise<void> {
   console.log(`OpenRouter : ${await openRouterCredits()}`);
-  for (const { provider, present } of litellmKeyStatus()) {
+  for (const { provider, present } of gatewayKeyStatus()) {
     console.log(`${provider.padEnd(10)} : ${present ? 'cle presente' : 'absente'}`);
   }
   console.log('Ollama     : local illimite · cloud quota (https://ollama.com/dashboard)');
 }
 
 function cmdUpdate(): void {
-  runNpm(['i', '-g', '@hexanexus/nexus-switch@latest']);
+  const status = runNpm(['i', '-g', '@hexanexus/nexus-switch@latest']);
+  if (status !== 0) process.exitCode = status ?? 1;
 }
 
 function cmdUninstall(): void {
-  // Leave nothing behind: stop the detached proxy, wipe the store, and purge
-  // any residual global env vars from the pre-store era.
-  stopProxy();
+  // Leave nothing behind: wipe the store and purge any residual global env vars
+  // from the pre-store era.
   wipeSecretStore();
   for (const varName of [...Object.values(KEY_VARS), 'NEXUS_PROXY_KEY']) purgeLegacyEnv(varName);
   console.log('Secrets et config supprimes (~/.nexus-switch + env global purge).');
-  runNpm(['rm', '-g', '@hexanexus/nexus-switch']);
+  const status = runNpm(['rm', '-g', '@hexanexus/nexus-switch']);
+  if (status !== 0) process.exitCode = status ?? 1;
 }
 
 function cmdHelp(): void {
@@ -148,7 +139,7 @@ function cmdHelp(): void {
       '  nexus refresh',
       '  nexus key set <provider> <key>',
       '  nexus key list',
-      '  nexus proxy start|stop|restart',
+      '  nexus key delete <provider>',
       '  nexus update | uninstall',
       '',
       `Providers : ${listProviders().join(', ')}`,
@@ -164,9 +155,12 @@ async function main(): Promise<void> {
   } catch {
     /* migration is best-effort; never block a launch on it */
   }
+  purgeLegacyLitellm();
   const args = process.argv.slice(2);
   if (args.length === 0) {
     if (process.stdin.isTTY) {
+      // Background: the TUI stays open long enough; the NEXT run shows the result.
+      void refreshUpdateCache();
       const { runTui } = await import('./ui/run.js');
       await runTui();
     } else {
@@ -185,9 +179,6 @@ async function main(): Promise<void> {
       break;
     case 'key':
       cmdKey(rest);
-      break;
-    case 'proxy':
-      await cmdProxy(rest);
       break;
     case 'credits':
       await cmdCredits();

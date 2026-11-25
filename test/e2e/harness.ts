@@ -3,7 +3,7 @@
 // The unit suite mocks `spawnSync`, so it is blind by construction to the bugs
 // that actually bite users: silent exit from a dirtied stdin/TTY, and tool
 // detection across python/pip layouts. These tests run the compiled CLI for
-// real and stub the external binaries (claude / pip / litellm) by prepending a
+// real and stub the external binaries (claude / python) by prepending a
 // throwaway bin dir to PATH — no code change needed, since the CLI resolves
 // every tool via where/which + spawn. State is isolated through NEXUS_DATA_DIR.
 
@@ -95,24 +95,133 @@ function claudeRecorderBody(logPath: string): string {
  * buildChildEnv through a marker file), guarded so only the claude.exe run acts.
  */
 export function installClaudeStub(binDir: string, logPath: string): void {
-  mkdirSync(binDir, { recursive: true });
-  const body = claudeRecorderBody(logPath);
+  installClaudeBody(binDir, 'claude-stub', claudeRecorderBody(logPath));
+}
+
+/**
+ * Install a fake `claude` that runs `body` (a CommonJS Node script) instead of
+ * the real CLI: POSIX gets a shebang launcher, Windows a node.exe hardlink plus
+ * a NODE_OPTIONS hook (see installClaudeStub).
+ */
+function installClaudeBody(binDir: string, hookName: string, body: string): void {
   if (process.platform !== 'win32') {
     writeStub(binDir, 'claude', body);
     return;
   }
+  mkdirSync(binDir, { recursive: true });
   linkNodeAs(binDir, 'claude.exe');
-  const hook = join(binDir, 'claude-stub.cjs');
+  const hook = join(binDir, `${hookName}.cjs`);
   writeFileSync(hook, body);
-  // NODE_OPTIONS treats backslash as an escape, so a Windows path silently loses
-  // its separators (C:\a\b -> C:ab -> MODULE_NOT_FOUND, crashing the parent).
-  // Forward slashes are valid for --require on Windows and survive the parsing.
-  writeFileSync(join(binDir, '.node-options'), `--require "${hook.replace(/\\/g, '/')}"`);
+  appendNodeRequire(binDir, hook);
 }
 
-/** A `litellm` stub: presence only (proxy is faked separately on :4000). */
-export function installLitellmStub(binDir: string): void {
-  writeStub(binDir, 'litellm', 'process.exit(0);');
+/**
+ * Install a fake claude that, instead of talking to a model, issues ONE real
+ * request to the gateway it inherited (`ANTHROPIC_BASE_URL`) and records how the
+ * gateway answered.
+ *
+ * Used with a deliberately wrong bearer token, so the expected answer is a 401
+ * from the gateway's own auth guard: that proves the gateway was alive and
+ * routing *while claude was running*, without touching the network. A gateway
+ * that cannot answer (e.g. a parent blocked in spawnSync) shows up as the
+ * timeout recorded here rather than as a hung suite.
+ */
+export function installClaudeProbe(binDir: string, logPath: string): void {
+  installClaudeBody(binDir, 'claude-probe', claudeProbeBody(logPath));
+}
+
+function claudeProbeBody(logPath: string): string {
+  return [
+    "const path = require('node:path');",
+    "const isWinHook = process.platform === 'win32';",
+    "if (!isWinHook || path.basename(process.execPath).toLowerCase() === 'claude.exe') {",
+    "  const fs = require('node:fs');",
+    "  const http = require('node:http');",
+    `  const LOG = ${JSON.stringify(logPath)};`,
+    '  const finish = (payload) => {',
+    '    try { fs.writeFileSync(LOG, JSON.stringify(payload)); } catch {}',
+    '    process.exit(0);',
+    '  };',
+    "  const base = process.env.ANTHROPIC_BASE_URL || '';",
+    "  if (!base) { finish({ error: 'ANTHROPIC_BASE_URL not set' }); }",
+    "  const target = new URL('/v1/messages', base);",
+    "  const payload = JSON.stringify({ model: 'probe', max_tokens: 1, messages: [{ role: 'user', content: 'ping' }] });",
+    '  const req = http.request(',
+    '    {',
+    '      hostname: target.hostname,',
+    '      port: target.port,',
+    '      path: target.pathname,',
+    "      method: 'POST',",
+    "      headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(payload), authorization: 'Bearer wrong-token' },",
+    '    },',
+    '    (res) => {',
+    '      res.resume();',
+    '      finish({ status: res.statusCode });',
+    '    },',
+    '  );',
+    "  req.on('error', (err) => finish({ error: err.message }));",
+    '  req.setTimeout(8000, () => {',
+    '    req.destroy();',
+    "    finish({ error: 'timeout: gateway never answered' });",
+    '  });',
+    '  req.write(payload);',
+    '  req.end();',
+    '}',
+  ].join('\n');
+}
+
+/**
+ * Append a `--require <hook>` to the bin dir's NODE_OPTIONS marker (created on
+ * first use), so several recorders can share one process.
+ *
+ * NODE_OPTIONS treats backslash as an escape, so a Windows path silently loses
+ * its separators (C:\a\b -> C:ab -> MODULE_NOT_FOUND, crashing the parent).
+ * Forward slashes are valid for --require on Windows and survive the parsing.
+ */
+function appendNodeRequire(binDir: string, hookPath: string): void {
+  mkdirSync(binDir, { recursive: true });
+  const marker = join(binDir, '.node-options');
+  const spec = `--require "${hookPath.replace(/\\/g, '/')}"`;
+  const existing = existsSync(marker) ? readFileSync(marker, 'utf8').trim() : '';
+  writeFileSync(marker, existing ? `${existing} ${spec}` : spec);
+}
+
+/**
+ * Record the argv nexus hands to `claude`, observed from INSIDE the nexus
+ * process by patching child_process.
+ *
+ * Why not read it off the stub: the Windows stub is a hardlink of node.exe
+ * (CreateProcess without a shell never resolves a `.cmd`), so node's own option
+ * parser eats any flag it also owns — `claude.exe -p bonjour` is read as
+ * `node -p bonjour` and `process.argv` no longer holds either token. That makes
+ * the stub blind to passthrough flags exactly where it matters. Patching the
+ * spawn call observes what nexus passed, identically on every platform, and
+ * `claude` resolving or exiting is left to whatever stub is installed.
+ */
+export function installSpawnRecorder(binDir: string, logPath: string): void {
+  const hook = join(binDir, 'spawn-recorder.cjs');
+  const body = [
+    "const cp = require('node:child_process');",
+    "const fs = require('node:fs');",
+    "const path = require('node:path');",
+    `const LOG = ${JSON.stringify(logPath)};`,
+    'const isClaude = (cmd) =>',
+    "  typeof cmd === 'string' && path.basename(cmd).toLowerCase().replace(/\\.exe$/, '') === 'claude';",
+    "for (const fn of ['spawnSync', 'spawn']) {",
+    '  const real = cp[fn];',
+    "  if (typeof real !== 'function') continue;",
+    '  cp[fn] = function (cmd, args, ...rest) {',
+    '    if (isClaude(cmd)) {',
+    '      try {',
+    "        fs.appendFileSync(LOG, JSON.stringify({ cmd, args: Array.isArray(args) ? args : [] }) + '\\n');",
+    '      } catch { /* recording is best-effort */ }',
+    '    }',
+    '    return real.apply(this, [cmd, args, ...rest]);',
+    '  };',
+    '}',
+  ].join('\n');
+  writeFileSync(hook, body);
+  appendNodeRequire(binDir, hook);
 }
 
 /** Hardlink the running node.exe into binDir under `exeName` (spawn-without-shell resolvable). */
@@ -127,7 +236,8 @@ function linkNodeAs(binDir: string, exeName: string): void {
 }
 
 /**
- * Neutralize the machine's real Python so litellm detection is hermetic:
+ * Neutralize the machine's real Python (legacy LiteLLM-path helper, kept for
+ * hermetic detection stubs):
  * pythonScriptDirs() asks python/python3/py where pip's script dirs live, which
  * finds a REAL off-PATH litellm on the dev box and breaks the "litellm absent"
  * scenario. On Windows the stubs must be .exe (spawn without shell never sees
@@ -152,6 +262,12 @@ export interface RunResult {
 export interface RunOptions {
   /** Dir prepended to PATH so its stubs win over real tools. */
   binDir?: string;
+  /**
+   * 'stub-only' builds a PATH from binDir + node + system dirs, hiding any real
+   * claude/npm installed on the machine. Required to test a `.cmd` shim without
+   * a later native claude.exe winning the lookup.
+   */
+  pathMode?: 'stub-only';
   /** Isolated nexus state dir (secrets, generated config). */
   dataDir: string;
   /** Extra env (e.g. NEXUS_E2E_CLAUDE_LOG). */
@@ -178,16 +294,30 @@ const SCRUBBED_VARS = [
 ];
 
 /** Isolated, scrubbed child env with the stub bin dir winning on PATH. */
-function buildChildEnv(opts: { binDir?: string; dataDir: string; extraEnv?: Record<string, string> }): NodeJS.ProcessEnv {
+function buildChildEnv(opts: {
+  binDir?: string;
+  pathMode?: 'stub-only';
+  dataDir: string;
+  extraEnv?: Record<string, string>;
+}): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     NEXUS_DATA_DIR: opts.dataDir,
     NEXUS_SECRETS_PLAINTEXT: '1',
+    NEXUS_NO_UPDATE_CHECK: '1', // no registry traffic from tests
   };
   for (const name of SCRUBBED_VARS) delete env[name];
   if (opts.binDir) {
-    env.PATH = opts.binDir + delimiter + (process.env.PATH ?? '');
-    // Windows claude stub injects itself via NODE_OPTIONS (see installClaudeStub).
+    if (opts.pathMode === 'stub-only') {
+      const win = process.env.WINDIR ?? 'C:\\Windows';
+      const systemDirs =
+        process.platform === 'win32' ? [join(win, 'System32'), win] : ['/usr/bin', '/bin'];
+      env.PATH = [opts.binDir, dirname(process.execPath), ...systemDirs].join(delimiter);
+    } else {
+      env.PATH = opts.binDir + delimiter + (process.env.PATH ?? '');
+    }
+    // Windows stubs/recorders inject themselves via NODE_OPTIONS (see
+    // installClaudeStub / installSpawnRecorder).
     const marker = join(opts.binDir, '.node-options');
     if (existsSync(marker)) {
       const injected = readFileSync(marker, 'utf8').trim();
@@ -214,9 +344,21 @@ export interface PtyResult {
   exitCode: number;
 }
 
+export interface PtySkip {
+  skipped: string;
+}
+
+export type PtyOutcome = PtyResult | PtySkip;
+
 export interface PtyOptions extends RunOptions {
   /** On first match of `match` in cumulative output, write `send` to the pty. */
   respondTo?: Array<{ match: RegExp; send: string }>;
+  /**
+   * Delay before writing a matched response. Ink swaps input handlers between
+   * screens; a write delivered in the same tick as the new screen's first
+   * render can land before the new useInput handler exists and be lost.
+   */
+  settleMs?: number;
   /**
    * Resolve as soon as this returns true (then kill the pty), instead of waiting
    * for the child to exit. Windows ConPTY often fails to report the exit once a
@@ -233,29 +375,36 @@ export interface PtyOptions extends RunOptions {
  * over cleanly (the silent-exit regression). Skips gracefully if node-pty has
  * no prebuilt binary for this platform.
  */
-export async function runNexusPty(args: string[], opts: PtyOptions): Promise<PtyResult | null> {
+export async function runNexusPty(args: string[], opts: PtyOptions): Promise<PtyOutcome> {
   // ConPTY (Windows pseudo-terminal) requires an attached console window.
   // Headless CI runners have no console, so node-pty's conpty_console_list_agent
   // throws "AttachConsole failed" when spawning -- not catchable from JS since
   // it happens in a subprocess. Detect this pre-spawn via the standard CI env
-  // var, and on non-TTY stdout (no terminal), and skip the test in that case.
-  if (process.env.CI === 'true' && process.platform === 'win32') return null;
-  if (!process.stdout.isTTY) return null;
+  // var. NOTE: do NOT gate on process.stdout.isTTY — node --test already pipes
+  // stdout for every test file, which made all three PTY tests skip forever.
+  if (process.env.CI === 'true' && process.platform === 'win32') {
+    return { skipped: 'ConPTY requires an interactive console (CI)' };
+  }
+  if (process.env.NEXUS_E2E_PTY === '0') return { skipped: 'NEXUS_E2E_PTY=0' };
 
   let pty: typeof import('node-pty');
   try {
     pty = await import('node-pty');
-  } catch {
-    return null;
+  } catch (err) {
+    return { skipped: `node-pty indisponible: ${err instanceof Error ? err.message : String(err)}` };
   }
   const child = pty.spawn(process.execPath, [nexusBin, ...args], {
     name: 'xterm-256color',
     cols: 100,
     rows: 30,
     cwd: repoRoot,
-    env: buildChildEnv(opts) as Record<string, string>,
+    // A PTY run stands for a user's terminal. Under CI (GitHub sets CI=true) Ink
+    // renders only the final frame on exit, so the TUI never draws the list the
+    // test answers to. CI=false is the is-in-ci opt-out.
+    env: { ...buildChildEnv(opts), CI: 'false' } as Record<string, string>,
   });
   const pending = [...(opts.respondTo ?? [])];
+  const sends = new Set<NodeJS.Timeout>();
   let output = '';
   return await new Promise<PtyResult>((resolve) => {
     let done = false;
@@ -264,6 +413,8 @@ export async function runNexusPty(args: string[], opts: PtyOptions): Promise<Pty
       done = true;
       clearTimeout(timer);
       clearInterval(poll);
+      for (const pendingSend of sends) clearTimeout(pendingSend);
+      sends.clear();
       try {
         child.kill();
       } catch {
@@ -278,9 +429,28 @@ export async function runNexusPty(args: string[], opts: PtyOptions): Promise<Pty
     child.onData((data) => {
       output += data;
       const idx = pending.findIndex((r) => r.match.test(output));
-      if (idx !== -1) {
-        child.write(pending[idx]!.send);
-        pending.splice(idx, 1);
+      if (idx === -1) return;
+      const matched = pending.splice(idx, 1)[0];
+      if (!matched) return;
+      const { send } = matched;
+      if (process.env.NEXUS_E2E_DEBUG === '1') {
+        console.error(`[pty] match ${matched.match} -> send ${JSON.stringify(send)}`);
+      }
+      const write = (): void => {
+        try {
+          child.write(send);
+        } catch {
+          /* pty already gone */
+        }
+      };
+      if (opts.settleMs) {
+        const handle = setTimeout(() => {
+          sends.delete(handle);
+          write();
+        }, opts.settleMs);
+        sends.add(handle);
+      } else {
+        write();
       }
     });
     child.onExit(({ exitCode }) => finish(exitCode));

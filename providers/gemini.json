@@ -1,12 +1,11 @@
 {
-  "type": "litellm",
-  "name": "Google Gemini (via LiteLLM)",
+  "type": "gateway",
+  "name": "Google Gemini",
   "default": "gemini/gemini-2.5-flash",
   "setup": "nexus key set gemini <cle> (aistudio.google.com). Compte Google requis, sans CB. Tier gratuit sur 2.5/3-flash ; tarifs ci-dessous au-dela. Source : ai.google.dev/gemini-api/docs/models + /pricing",
-  "env": {
-    "ANTHROPIC_BASE_URL": "http://127.0.0.1:4000",
-    "ANTHROPIC_AUTH_TOKEN": "${NEXUS_PROXY_KEY}",
-    "ANTHROPIC_API_KEY": ""
+  "api": {
+    "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "model_prefix": "gemini/"
   },
   "models": [
     {

@@ -1,12 +1,11 @@
 {
-  "type": "litellm",
-  "name": "NVIDIA NIM (via LiteLLM)",
+  "type": "gateway",
+  "name": "NVIDIA NIM",
   "default": "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b",
-  "setup": "nexus key set nvidia <cle> (build.nvidia.com). Compte requis, sans CB. Tier gratuit ~40 req/min + 1000 credits a l'inscription. Source : build.nvidia.com/models",
-  "env": {
-    "ANTHROPIC_BASE_URL": "http://127.0.0.1:4000",
-    "ANTHROPIC_AUTH_TOKEN": "${NEXUS_PROXY_KEY}",
-    "ANTHROPIC_API_KEY": ""
+  "setup": "nexus key set nvidia <cle> (build.nvidia.com). Compte requis, sans CB. Tier gratuit ~40 req/min + 1000 credits a l'inscription. Source : build.nvidia.com/models. Ids verifies contre l'API live le 2026-10-08",
+  "api": {
+    "base_url": "https://integrate.api.nvidia.com/v1",
+    "model_prefix": "nvidia_nim/"
   },
   "models": [
     {
@@ -32,26 +31,37 @@
       "note": "flagship entreprise, function calling — compte requis"
     },
     {
-      "id": "nvidia_nim/deepseek-ai/deepseek-v4",
-      "name": "DeepSeek V4",
+      "id": "nvidia_nim/deepseek-ai/deepseek-v4.1-flash",
+      "name": "DeepSeek V4.1 Flash",
       "tier": "quota",
       "signin_required": "nvidia",
       "location": "cloud",
       "context": 1000000,
       "price_in": null,
       "price_out": null,
-      "note": "MoE coding, 1M ctx — compte requis (id best-effort)"
+      "note": "MoE coding rapide, 1M ctx — compte requis"
     },
     {
-      "id": "nvidia_nim/deepseek-ai/deepseek-v4-flash",
-      "name": "DeepSeek V4 Flash",
+      "id": "nvidia_nim/moonshotai/kimi-k3",
+      "name": "Kimi K3",
       "tier": "quota",
       "signin_required": "nvidia",
       "location": "cloud",
-      "context": 1000000,
+      "context": null,
       "price_in": null,
       "price_out": null,
-      "note": "284B/13B actifs, coding/agents rapides, 1M ctx — compte requis (id best-effort)"
+      "note": "agentic coding long contexte, tools — compte requis"
+    },
+    {
+      "id": "nvidia_nim/z-ai/glm-5.3",
+      "name": "GLM 5.3",
+      "tier": "quota",
+      "signin_required": "nvidia",
+      "location": "cloud",
+      "context": null,
+      "price_in": null,
+      "price_out": null,
+      "note": "coding agentique, tools — compte requis"
     }
   ]
 }

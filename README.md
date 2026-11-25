@@ -16,7 +16,7 @@
 
 ---
 
-Nexus Switch is a terminal launcher and router for [Claude Code](https://www.anthropic.com/claude-code). It sets the right environment for each provider, optionally starts a local [LiteLLM](https://github.com/BerriAI/litellm) proxy, and hands the terminal to `claude` — no global config, no profile edits.
+Nexus Switch is a terminal launcher and router for [Claude Code](https://www.anthropic.com/claude-code). It sets the right environment for each provider, starts an in-process loopback gateway for OpenAI-compatible providers (it translates Anthropic ⇄ OpenAI and forwards only the fields the provider understands), and hands the terminal to `claude` — no global config, no profile edits, no Python proxy.
 
 > Nexus Switch is **not affiliated with Anthropic**. It launches the `claude` CLI you install yourself.
 
@@ -24,10 +24,10 @@ Nexus Switch is a terminal launcher and router for [Claude Code](https://www.ant
 
 ```bash
 npm i -g @hexanexus/nexus-switch
-nexus doctor          # verify claude, keys, and proxy are ready
+nexus doctor          # verify claude and keys are ready
 ```
 
-**Requires:** Node.js ≥ 18 and [`@anthropic-ai/claude-code`](https://www.npmjs.com/package/@anthropic-ai/claude-code).
+**Requires:** Node.js ≥ 18 and [`@anthropic-ai/claude-code`](https://www.npmjs.com/package/@anthropic-ai/claude-code). Both the npm install (`claude.cmd` on Windows) and the native installer (`claude.exe`) are supported.
 
 ## Quick start
 
@@ -44,9 +44,9 @@ launch anything. When claude exits, you land back in the picker — not in the
 shell.
 
 ```text
- ◢ NEXUS SWITCH                              v1.3.1 · proxy ● :4000
+ ◢ NEXUS SWITCH
 
- Groq (via LiteLLM proxy)  ·  9 modeles
+ Groq  ·  9 modeles
  ────────────────────────────────────────────────────────────────
  ▸ ● QUOTA   Llama 3.3 70B Versatile   cloud · 131K · $0.59/0.79
    ● QUOTA   GPT-OSS 120B              cloud · 131K · $0.15/0.6
@@ -62,7 +62,7 @@ shell.
 
 | Provider | Free tier | Account | Notes |
 |---|---|---|---|
-| **Groq** | ✅ rate-limited | Required | `nexus key set groq <key>` |
+| **Groq** | ✅ 8k tokens/min | Required | `nexus key set groq <key>` · launches in `--bare` (reduced mode) |
 | **Gemini** | ✅ generous | Required (Google) | `nexus key set gemini <key>` |
 | **Mistral** | ✅ experimental | Required | `nexus key set mistral <key>` |
 | **Cerebras** | ✅ ~1M tok/day | Required | `nexus key set cerebras <key>` |
@@ -70,7 +70,7 @@ shell.
 | **OpenRouter** | ✅ 50 req/day | Required | `nexus key set openrouter <key>` |
 | **Ollama local** | ✅ unlimited | None | `ollama pull <model>` |
 | **Ollama cloud** | ✅ quota (some models Pro-only) | Required | `ollama signin` |
-| **Anthropic** | ❌ paid | Required | `nexus key set anthropic <key>` |
+| **Anthropic** | ❌ paid | Required | Claude subscription or `ANTHROPIC_API_KEY` |
 
 The TUI labels every model's billing tier, and the picker explains the
 highlighted model's cost in plain words:
@@ -87,16 +87,18 @@ highlighted model's cost in plain words:
 nexus                             # interactive TUI (provider → model → launch)
 nexus <provider> [model] [flags]  # direct launch, e.g. nexus groq llama-3.3-70b-versatile
 nexus key set <provider> <key>    # save a provider API key
-nexus key list                    # list configured keys (masked)
+nexus key list                    # list configured keys
 nexus key delete <provider>       # remove a key
-nexus doctor                      # check claude CLI, keys, and proxy status
+nexus doctor                      # check claude CLI and keys
 nexus credits                     # show remaining credits/quota per provider
-nexus refresh                     # sync the model catalog from provider APIs
-nexus proxy start                 # start the LiteLLM proxy (auto-started on need)
-nexus proxy stop                  # stop the proxy
+nexus refresh                     # refresh OpenRouter + Ollama catalogs
 nexus update                      # update nexus-switch to the latest release
 nexus uninstall                   # uninstall
 ```
+
+Nexus checks npm at most once a day in the background and shows `↑ X.Y.Z dispo · nexus update`
+in the TUI header (and one line on direct launches) when a newer version exists. It never
+updates itself. Set `NEXUS_NO_UPDATE_CHECK=1` to turn the check off.
 
 ## Documentation
 

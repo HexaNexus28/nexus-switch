@@ -12,14 +12,18 @@ interface Props {
 function summary(p: Provider): string {
   const tiers = new Set(p.models.map((m) => m.tier));
   const best = tiers.has('free') ? 'gratuit' : tiers.has('quota') ? 'quota gratuit' : tiers.has('paid') ? 'payant' : 'abonnement';
-  return `${p.models.length} modeles · ${best}`;
+  return `${p.models.length} modeles · ${best}${p.bare ? ' · mode reduit' : ''}`;
 }
 
 export function ProviderList({ providers, onSelect, onQuit }: Props) {
   const [cursor, setCursor] = useState(0);
-  const nameWidth = Math.max(...providers.map((p) => p.name.length));
+  const nameWidth = providers.length > 0 ? Math.max(...providers.map((p) => p.name.length)) : 0;
 
   useInput((input, key) => {
+    if (providers.length === 0) {
+      if (input === 'q' || key.escape || key.return) onQuit();
+      return;
+    }
     if (key.upArrow) setCursor((c) => Math.max(0, c - 1));
     if (key.downArrow) setCursor((c) => Math.min(providers.length - 1, c + 1));
     if (key.return) onSelect(providers[cursor]!);
@@ -35,6 +39,7 @@ export function ProviderList({ providers, onSelect, onQuit }: Props) {
         <Text dimColor>{'  ·  choisis ta source de modeles'}</Text>
       </Text>
       <Text dimColor>{'─'.repeat(Math.min(72, nameWidth + 30))}</Text>
+      {providers.length === 0 ? <Text color="red">Aucun provider valide dans providers/.</Text> : null}
       {providers.map((p, i) => {
         const selected = i === cursor;
         return (

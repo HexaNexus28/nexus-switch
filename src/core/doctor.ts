@@ -24,7 +24,10 @@ async function probeKey(provider: string, key: string): Promise<boolean | null> 
   }
   if (!creditsApi) return null;
   try {
-    const res = await fetch(creditsApi, { headers: { Authorization: `Bearer ${key}` } });
+    const res = await fetch(creditsApi, {
+      headers: { Authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(15_000),
+    });
     return res.ok;
   } catch {
     return null;

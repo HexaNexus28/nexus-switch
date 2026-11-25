@@ -1,7 +1,7 @@
 {
   "name": "@hexanexus/nexus-switch",
-  "version": "1.4.0",
-  "description": "Cross-platform terminal launcher/router for Claude Code across OpenRouter, Groq, Ollama and LiteLLM providers.",
+  "version": "1.4.1",
+  "description": "Cross-platform terminal launcher/router for Claude Code across OpenRouter, Groq, Gemini, Cerebras, Mistral, NVIDIA NIM and Ollama.",
   "type": "module",
   "repository": {
     "type": "git",
@@ -15,6 +15,8 @@
     "bin/nexus.js",
     "dist/",
     "providers/",
+    "docs/*.md",
+    "!docs/NOTES-*.md",
     "README.md",
     "LICENSE",
     "NOTICE"
@@ -48,7 +50,7 @@
   "keywords": [
     "claude-code",
     "router",
-    "litellm",
+    "gemini",
     "openrouter",
     "groq",
     "ollama"

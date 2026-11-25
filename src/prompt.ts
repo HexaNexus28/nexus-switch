@@ -3,28 +3,6 @@ import { createInterface } from 'node:readline/promises';
 import type { Provider } from './types/provider.types.js';
 import { keyVarFor, readKey, setKey } from './core/keys.js';
 import { claudeExists, runNpm } from './core/launch.js';
-import { litellmExists } from './core/proxy.js';
-
-/**
- * Resolve how to invoke pip, or null if no interpreter exposes it. Don't assume
- * `python` is on PATH: a fresh Windows box often has only the `py` launcher, or
- * exposes `python3`. Try `pip` directly, then `<interpreter> -m pip`.
- */
-export function pipCommand(): { cmd: string; prefix: string[] } | null {
-  const probe = process.platform === 'win32' ? 'where' : 'which';
-  if (spawnSync(probe, ['pip'], { stdio: 'ignore' }).status === 0) return { cmd: 'pip', prefix: [] };
-  const candidates: ReadonlyArray<{ cmd: string; prefix: string[] }> = [
-    { cmd: 'python', prefix: ['-m', 'pip'] },
-    { cmd: 'python3', prefix: ['-m', 'pip'] },
-    { cmd: 'py', prefix: ['-3', '-m', 'pip'] },
-  ];
-  for (const candidate of candidates) {
-    if (spawnSync(candidate.cmd, [...candidate.prefix, '--version'], { stdio: 'ignore' }).status === 0) {
-      return candidate;
-    }
-  }
-  return null;
-}
 
 /**
  * Ensure the `claude` CLI is available. If absent, offer an opt-in npm install
@@ -110,15 +88,12 @@ export async function ensureOllamaModel(model: string): Promise<boolean> {
 }
 
 /**
- * 
- * 
- * 
  * Ensure the provider's API key is in the store before launch — the cloud
  * analogue of `ensureOllamaModel`'s auto-pull. Providers that need no
  * nexus-managed key (Ollama, native Anthropic) pass through. If the key is
  * missing, prompt for it on a TTY and persist it (same as `nexus key set`);
  * otherwise print the manual command. Stops a launch from 401-ing on an empty
- * ANTHROPIC_AUTH_TOKEN, or a LiteLLM proxy booting with no route.
+ * ANTHROPIC_AUTH_TOKEN.
  */
 export async function ensureProviderKey(provider: Provider): Promise<boolean> {
   const varName = provider.id ? keyVarFor(provider.id) : undefined;
@@ -139,33 +114,4 @@ export async function ensureProviderKey(provider: Provider): Promise<boolean> {
   setKey(varName, answer);
   console.error(`${varName} enregistree dans ~/.nexus-switch.`);
   return true;
-}
-
-/**
- * Ensure the litellm CLI is available for LiteLLM-backed providers. Offers an opt-in
- * pip install only when pip and a TTY are present; otherwise prints the manual command.
- */
-export async function ensureLitellm(): Promise<boolean> {
-  if (litellmExists()) return true;
-  console.error('LiteLLM absent (requis pour les providers via gateway : groq, gemini, cerebras, mistral, nvidia).');
-  const pip = pipCommand();
-  if (!pip || !process.stdin.isTTY) {
-    console.error('Install : pip install "litellm[proxy]"');
-    return false;
-  }
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const answer = (await rl.question('Installer LiteLLM via pip maintenant ? [o/N] ')).trim();
-  rl.close();
-  if (!/^[oy]/i.test(answer)) {
-    console.error('Abandon. Install manuelle : pip install "litellm[proxy]"');
-    return false;
-  }
-  const install = spawnSync(pip.cmd, [...pip.prefix, 'install', 'litellm[proxy]'], { stdio: 'inherit' });
-  if (install.error || install.status !== 0) {
-    console.error('Echec de pip. Install manuelle : pip install "litellm[proxy]"');
-    return false;
-  }
-  if (litellmExists()) return true;
-  console.error('LiteLLM installe mais introuvable. Ajoute le dossier Scripts de Python au PATH, puis relance nexus.');
-  return false;
 }

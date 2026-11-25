@@ -7,11 +7,28 @@ import { getSecret } from './secrets.js';
 // provider template restores them.
 const ORIGINAL_ENV: NodeJS.ProcessEnv = { ...process.env };
 
+/**
+ * Claude Code resolves its "haiku" model (used for background work: titles,
+ * summaries) and the /model aliases from these variables. A third-party
+ * provider serves none of the Anthropic ids, so every alias must point at the
+ * selected model — otherwise claude sends e.g. claude-haiku-5-5 to Groq and
+ * every background request 404s.
+ */
+export const MODEL_ALIAS_VARS = [
+  'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+  'ANTHROPIC_SMALL_FAST_MODEL',
+  'ANTHROPIC_DEFAULT_SONNET_MODEL',
+  'ANTHROPIC_DEFAULT_OPUS_MODEL',
+  'ANTHROPIC_DEFAULT_FABLE_MODEL',
+] as const;
+
 const ANTHROPIC_OVERRIDES = [
   'ANTHROPIC_BASE_URL',
   'ANTHROPIC_AUTH_TOKEN',
   'ANTHROPIC_API_KEY',
   'ANTHROPIC_MODEL',
+  ...MODEL_ALIAS_VARS,
+  'CLAUDE_CODE_MAX_CONTEXT_TOKENS',
   'MAX_THINKING_TOKENS',
   'CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING',
   'CLAUDE_CODE_EFFORT_LEVEL',
@@ -23,6 +40,22 @@ const ANTHROPIC_OVERRIDES = [
  */
 export function resetProviderEnv(): void {
   for (const key of ANTHROPIC_OVERRIDES) delete process.env[key];
+}
+
+/** Point every Claude Code model alias at the model Nexus is launching. */
+export function applyModelAliases(model: string): void {
+  for (const key of MODEL_ALIAS_VARS) process.env[key] = model;
+}
+
+/**
+ * Claude Code assumes a 1M window for any model id it doesn't know, so it never
+ * auto-compacts before the provider's real limit and the session dies on a
+ * context-length error. The catalog knows the real window; hand it over.
+ */
+export function applyContextWindow(provider: Provider, model: string): void {
+  const context = provider.models.find((m) => m.id === model)?.context;
+  if (context && context > 0) process.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS = String(context);
+  else delete process.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS;
 }
 
 /** Resolve ${VAR} placeholders against the secret store, then the original env. */
@@ -56,7 +89,22 @@ export function applyProviderEnv(provider: Provider, model: string): void {
   }
   process.env.ANTHROPIC_MODEL = model;
 
-  // Non-Anthropic-native models (Groq via LiteLLM, OpenRouter owl-alpha, ...)
+  // Native Anthropic keeps the user's own alias mapping; every other provider
+  // must map background/alias requests onto the model it actually serves.
+  if (provider.type === 'anthropic') {
+    // resetProviderEnv() wipes the overrides; restore aliases the user had set
+    // globally before nexus started rather than silently discarding them.
+    for (const key of MODEL_ALIAS_VARS) {
+      const original = ORIGINAL_ENV[key];
+      if (original) process.env[key] = original;
+      else delete process.env[key];
+    }
+  } else {
+    applyModelAliases(model);
+    applyContextWindow(provider, model);
+  }
+
+  // Non-Anthropic-native models (Groq via the gateway, OpenRouter owl-alpha, ...)
   // reject Anthropic-native fields:
   //   thinking_blocks  -> disabled by MAX_THINKING_TOKENS=0
   //   output_config    -> effort is emitted whenever claude believes the model

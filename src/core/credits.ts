@@ -17,7 +17,10 @@ export async function openRouterCredits(): Promise<string> {
   }
   if (!api) return 'pas de credits_api';
   try {
-    const res = await fetch(api, { headers: { Authorization: `Bearer ${key}` } });
+    const res = await fetch(api, {
+      headers: { Authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(15_000),
+    });
     if (!res.ok) return `API ${res.status}`;
     const body = (await res.json()) as OpenRouterCredits;
     const total = body.data?.total_credits ?? 0;
@@ -28,8 +31,8 @@ export async function openRouterCredits(): Promise<string> {
   }
 }
 
-/** Key-presence summary for the LiteLLM-backed providers. */
-export function litellmKeyStatus(): { provider: string; present: boolean }[] {
+/** Key-presence summary for the gateway-typed providers. */
+export function gatewayKeyStatus(): { provider: string; present: boolean }[] {
   return (['groq', 'gemini', 'cerebras', 'mistral', 'nvidia'] as const).map((provider) => ({
     provider,
     present: Boolean(readKey(KEY_VARS[provider] ?? '')),

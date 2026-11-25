@@ -3,8 +3,6 @@ import { render } from 'ink';
 import type { Provider } from '../types/provider.types.js';
 import { loadAllProviders } from '../core/providers.js';
 import { launch, releaseStdin, runNpm } from '../core/launch.js';
-import { ensureProxyForProvider } from '../core/proxy.js';
-import { pipCommand } from '../prompt.js';
 import { App, type Choice, type Intent } from './App.js';
 
 interface SessionState {
@@ -50,6 +48,11 @@ async function session(providers: Provider[], state: SessionState): Promise<Inte
  */
 export async function runTui(): Promise<void> {
   const providers = loadAllProviders();
+  if (providers.length === 0) {
+    console.error('Aucun provider valide dans providers/. Corrige le catalogue puis relance.');
+    process.exitCode = 1;
+    return;
+  }
   const state: SessionState = { provider: null, retryChoice: null };
   for (;;) {
     const intent = await session(providers, state);
@@ -58,23 +61,12 @@ export async function runTui(): Promise<void> {
     state.provider = choice.provider;
     state.retryChoice = null;
     switch (intent.kind) {
-      case 'install':
-        if (intent.tool === 'claude') {
-          runNpm(['i', '-g', '@anthropic-ai/claude-code']);
-        } else {
-          const pip = pipCommand();
-          if (!pip) {
-            console.error('pip introuvable — installe Python (python.org) puis : pip install "litellm[proxy]"');
-            break; // back to the picker, no retry possible
-          }
-          const install = spawnSync(pip.cmd, [...pip.prefix, 'install', 'litellm[proxy]'], { stdio: 'inherit' });
-          if (install.error || install.status !== 0) {
-            console.error('Echec de pip. Install manuelle : pip install "litellm[proxy]"');
-            break;
-          }
-        }
+      case 'install': {
+        const status = runNpm(['i', '-g', '@anthropic-ai/claude-code']);
+        if (status !== 0) console.error("Echec de l'installation de Claude Code.");
         state.retryChoice = choice; // re-check the same choice, then launch
         break;
+      }
       case 'pull': {
         const pull = spawnSync('ollama', ['pull', choice.model], { stdio: 'inherit' });
         if (pull.error || (pull.status !== null && pull.status !== 0)) {
@@ -85,8 +77,7 @@ export async function runTui(): Promise<void> {
         break;
       }
       case 'launch':
-        if (!(await ensureProxyForProvider(choice.provider.type))) break;
-        launch(choice.provider, choice.model, []);
+        await launch(choice.provider, choice.model, []);
         break;
     }
   }

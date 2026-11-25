@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 // Hermetic: isolated data dir, plaintext store (no PowerShell/DPAPI), and no
@@ -11,7 +11,7 @@ process.env.NEXUS_DATA_DIR = dataDir;
 process.env.NEXUS_SECRETS_PLAINTEXT = '1';
 process.env.NEXUS_SKIP_ENV_PURGE = '1';
 
-const { getSecret, setSecret, deleteSecret, listSecretNames, wipeSecretStore, migrateLegacyEnv } = await import(
+const { getSecret, setSecret, deleteSecret, listSecretNames, wipeSecretStore, migrateLegacyEnv, nexusDataDir } = await import(
   './secrets.js'
 );
 
@@ -44,6 +44,26 @@ test('migrateLegacyEnv is idempotent (marker guards re-run)', () => {
   process.env.GEMINI_API_KEY = 'should-not-import-after-marker';
   migrateLegacyEnv(); // marker already written by the previous test -> no-op
   assert.equal(getSecret('GEMINI_API_KEY'), undefined);
+});
+
+test('a corrupt store is preserved before the next write', () => {
+  writeFileSync(join(dataDir, 'secrets.json'), '{not valid json');
+  assert.equal(getSecret('OPENROUTER_API_KEY'), undefined);
+  setSecret('OPENROUTER_API_KEY', 'recovered');
+  assert.equal(getSecret('OPENROUTER_API_KEY'), 'recovered');
+  const corrupt = readdirSync(dataDir).filter((name) => name.startsWith('secrets.json.corrupt-'));
+  assert.equal(corrupt.length, 1, 'the damaged store must be kept for recovery');
+});
+
+test('nexusDataDir ignores an empty override instead of using the cwd', () => {
+  const previous = process.env.NEXUS_DATA_DIR;
+  process.env.NEXUS_DATA_DIR = '';
+  try {
+    assert.equal(nexusDataDir(), join(homedir(), '.nexus-switch'));
+  } finally {
+    if (previous === undefined) delete process.env.NEXUS_DATA_DIR;
+    else process.env.NEXUS_DATA_DIR = previous;
+  }
 });
 
 test('wipeSecretStore removes the data directory', () => {
