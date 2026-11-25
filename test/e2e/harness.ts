@@ -262,6 +262,12 @@ export interface RunResult {
 export interface RunOptions {
   /** Dir prepended to PATH so its stubs win over real tools. */
   binDir?: string;
+  /**
+   * 'stub-only' builds a PATH from binDir + node + system dirs, hiding any real
+   * claude/npm installed on the machine. Required to test a `.cmd` shim without
+   * a later native claude.exe winning the lookup.
+   */
+  pathMode?: 'stub-only';
   /** Isolated nexus state dir (secrets, generated config). */
   dataDir: string;
   /** Extra env (e.g. NEXUS_E2E_CLAUDE_LOG). */
@@ -288,15 +294,28 @@ const SCRUBBED_VARS = [
 ];
 
 /** Isolated, scrubbed child env with the stub bin dir winning on PATH. */
-function buildChildEnv(opts: { binDir?: string; dataDir: string; extraEnv?: Record<string, string> }): NodeJS.ProcessEnv {
+function buildChildEnv(opts: {
+  binDir?: string;
+  pathMode?: 'stub-only';
+  dataDir: string;
+  extraEnv?: Record<string, string>;
+}): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     NEXUS_DATA_DIR: opts.dataDir,
     NEXUS_SECRETS_PLAINTEXT: '1',
+    NEXUS_NO_UPDATE_CHECK: '1', // no registry traffic from tests
   };
   for (const name of SCRUBBED_VARS) delete env[name];
   if (opts.binDir) {
-    env.PATH = opts.binDir + delimiter + (process.env.PATH ?? '');
+    if (opts.pathMode === 'stub-only') {
+      const win = process.env.WINDIR ?? 'C:\\Windows';
+      const systemDirs =
+        process.platform === 'win32' ? [join(win, 'System32'), win] : ['/usr/bin', '/bin'];
+      env.PATH = [opts.binDir, dirname(process.execPath), ...systemDirs].join(delimiter);
+    } else {
+      env.PATH = opts.binDir + delimiter + (process.env.PATH ?? '');
+    }
     // Windows stubs/recorders inject themselves via NODE_OPTIONS (see
     // installClaudeStub / installSpawnRecorder).
     const marker = join(opts.binDir, '.node-options');
@@ -325,9 +344,21 @@ export interface PtyResult {
   exitCode: number;
 }
 
+export interface PtySkip {
+  skipped: string;
+}
+
+export type PtyOutcome = PtyResult | PtySkip;
+
 export interface PtyOptions extends RunOptions {
   /** On first match of `match` in cumulative output, write `send` to the pty. */
   respondTo?: Array<{ match: RegExp; send: string }>;
+  /**
+   * Delay before writing a matched response. Ink swaps input handlers between
+   * screens; a write delivered in the same tick as the new screen's first
+   * render can land before the new useInput handler exists and be lost.
+   */
+  settleMs?: number;
   /**
    * Resolve as soon as this returns true (then kill the pty), instead of waiting
    * for the child to exit. Windows ConPTY often fails to report the exit once a
@@ -344,20 +375,23 @@ export interface PtyOptions extends RunOptions {
  * over cleanly (the silent-exit regression). Skips gracefully if node-pty has
  * no prebuilt binary for this platform.
  */
-export async function runNexusPty(args: string[], opts: PtyOptions): Promise<PtyResult | null> {
+export async function runNexusPty(args: string[], opts: PtyOptions): Promise<PtyOutcome> {
   // ConPTY (Windows pseudo-terminal) requires an attached console window.
   // Headless CI runners have no console, so node-pty's conpty_console_list_agent
   // throws "AttachConsole failed" when spawning -- not catchable from JS since
   // it happens in a subprocess. Detect this pre-spawn via the standard CI env
-  // var, and on non-TTY stdout (no terminal), and skip the test in that case.
-  if (process.env.CI === 'true' && process.platform === 'win32') return null;
-  if (!process.stdout.isTTY) return null;
+  // var. NOTE: do NOT gate on process.stdout.isTTY — node --test already pipes
+  // stdout for every test file, which made all three PTY tests skip forever.
+  if (process.env.CI === 'true' && process.platform === 'win32') {
+    return { skipped: 'ConPTY requires an interactive console (CI)' };
+  }
+  if (process.env.NEXUS_E2E_PTY === '0') return { skipped: 'NEXUS_E2E_PTY=0' };
 
   let pty: typeof import('node-pty');
   try {
     pty = await import('node-pty');
-  } catch {
-    return null;
+  } catch (err) {
+    return { skipped: `node-pty indisponible: ${err instanceof Error ? err.message : String(err)}` };
   }
   const child = pty.spawn(process.execPath, [nexusBin, ...args], {
     name: 'xterm-256color',
@@ -367,6 +401,7 @@ export async function runNexusPty(args: string[], opts: PtyOptions): Promise<Pty
     env: buildChildEnv(opts) as Record<string, string>,
   });
   const pending = [...(opts.respondTo ?? [])];
+  const sends = new Set<NodeJS.Timeout>();
   let output = '';
   return await new Promise<PtyResult>((resolve) => {
     let done = false;
@@ -375,6 +410,8 @@ export async function runNexusPty(args: string[], opts: PtyOptions): Promise<Pty
       done = true;
       clearTimeout(timer);
       clearInterval(poll);
+      for (const pendingSend of sends) clearTimeout(pendingSend);
+      sends.clear();
       try {
         child.kill();
       } catch {
@@ -389,9 +426,28 @@ export async function runNexusPty(args: string[], opts: PtyOptions): Promise<Pty
     child.onData((data) => {
       output += data;
       const idx = pending.findIndex((r) => r.match.test(output));
-      if (idx !== -1) {
-        child.write(pending[idx]!.send);
-        pending.splice(idx, 1);
+      if (idx === -1) return;
+      const matched = pending.splice(idx, 1)[0];
+      if (!matched) return;
+      const { send } = matched;
+      if (process.env.NEXUS_E2E_DEBUG === '1') {
+        console.error(`[pty] match ${matched.match} -> send ${JSON.stringify(send)}`);
+      }
+      const write = (): void => {
+        try {
+          child.write(send);
+        } catch {
+          /* pty already gone */
+        }
+      };
+      if (opts.settleMs) {
+        const handle = setTimeout(() => {
+          sends.delete(handle);
+          write();
+        }, opts.settleMs);
+        sends.add(handle);
+      } else {
+        write();
       }
     });
     child.onExit(({ exitCode }) => finish(exitCode));

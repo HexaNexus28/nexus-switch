@@ -15,7 +15,7 @@ let upstream: Server;
 let upstreamUrl: string;
 let captured: UpstreamCapture[] = [];
 /** Behavior switch for the next upstream response. */
-let mode: 'json' | 'stream' | 'error429' = 'json';
+let mode: 'json' | 'stream' | 'stream-groq' | 'abort' | 'error429' | 'error413' = 'json';
 
 function upstreamListen(): Promise<void> {
   upstream = createServer((req, res) => {
@@ -26,6 +26,11 @@ function upstreamListen(): Promise<void> {
         auth: req.headers.authorization,
         body: JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown>,
       });
+      if (mode === 'error413') {
+        res.writeHead(413, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'TPM: Limit 8000, Requested 24368', type: 'tokens' } }));
+        return;
+      }
       if (mode === 'error429') {
         res.writeHead(429, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ error: { message: 'TPM limit 8000, requested 29631', type: 'tokens' } }));
@@ -38,6 +43,22 @@ function upstreamListen(): Promise<void> {
         res.write('data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":1}}\n\n');
         res.write('data: [DONE]\n\n');
         res.end();
+        return;
+      }
+      if (mode === 'stream-groq') {
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        res.write('data: {"id":"c1","choices":[{"delta":{"content":"hi"}}]}\n\n');
+        res.write('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n');
+        res.write(
+          'data: {"choices":[],"x_groq":{"usage":{"prompt_tokens":77,"completion_tokens":3}}}\n\n',
+        );
+        res.end();
+        return;
+      }
+      if (mode === 'abort') {
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        res.write('data: {"id":"c1","choices":[{"delta":{"content":"partial"}}]}\n\n');
+        setTimeout(() => res.destroy(), 10);
         return;
       }
       res.writeHead(200, { 'content-type': 'application/json' });
@@ -138,6 +159,26 @@ test('stream: upstream OpenAI SSE comes back as Anthropic SSE', async () => {
   assert.match(text, /"input_tokens":10/);
 });
 
+test('stream: Groq x_groq usage reaches message_delta', async () => {
+  mode = 'stream-groq';
+  const res = await callGateway('/v1/messages', request({ stream: true }));
+  assert.equal(res.status, 200);
+  const text = await res.text();
+  assert.match(text, /"usage":\{"input_tokens":77,"output_tokens":3\}/);
+  mode = 'json';
+});
+
+test('upstream stream interruption emits an SSE error, not message_stop', async () => {
+  mode = 'abort';
+  const res = await callGateway('/v1/messages', request({ stream: true }));
+  assert.equal(res.status, 200);
+  const text = await res.text();
+  assert.match(text, /event: error/);
+  assert.match(text, /api_error/);
+  assert.doesNotMatch(text, /event: message_stop/);
+  mode = 'json';
+});
+
 test('upstream error keeps its status and message in Anthropic error shape', async () => {
   mode = 'error429';
   const res = await callGateway('/v1/messages', request({}));
@@ -145,6 +186,17 @@ test('upstream error keeps its status and message in Anthropic error shape', asy
   const body = (await res.json()) as { error: { type: string; message: string } };
   assert.equal(body.error.type, 'rate_limit_error');
   assert.match(body.error.message, /TPM limit 8000/);
+  mode = 'json';
+});
+
+test('provider 413 (token quota) becomes a readable 400, never the 32MB message', async () => {
+  mode = 'error413';
+  const res = await callGateway('/v1/messages', request({}));
+  assert.equal(res.status, 400);
+  const body = (await res.json()) as { error: { type: string; message: string } };
+  assert.equal(body.error.type, 'invalid_request_error');
+  assert.match(body.error.message, /Limit 8000/);
+  assert.match(body.error.message, /--bare/);
   mode = 'json';
 });
 

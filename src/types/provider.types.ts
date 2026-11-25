@@ -67,8 +67,14 @@ export interface Provider {
   env?: ProviderEnv;
   /** Required for type 'gateway': upstream OpenAI-compatible endpoint. */
   api?: GatewayApi;
+  /**
+   * Upstream quota is smaller than Claude Code's full prompt (Groq free tier:
+   * 8000 tokens/min vs 24-37k): nexus launches claude with --bare, which drops
+   * CLAUDE.md, hooks, MCP and plugins. NEXUS_FULL_PROMPT=1 opts out (paid tier).
+   */
+  bare?: boolean;
   /** OpenRouter credits endpoint, when available. */
   credits_api?: string;
-  /** Human-readable setup hint (e.g. LiteLLM proxy install). */
+  /** Human-readable setup hint (account, key page, local install). */
   setup?: string;
 }

@@ -12,9 +12,9 @@
 //   - Unix: plaintext file with 0600 perms inside a 0700 directory.
 
 import { execFileSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, parse, resolve } from 'node:path';
 
 /** Nexus-managed secret names that previously lived as global env vars. */
 const LEGACY_ENV_NAMES = [
@@ -41,7 +41,10 @@ type Secrets = Record<string, string>;
  * NEXUS_DATA_DIR overrides it (multi-profile setups; isolated test runs).
  */
 export function nexusDataDir(): string {
-  return process.env.NEXUS_DATA_DIR ?? join(homedir(), '.nexus-switch');
+  const configured = process.env.NEXUS_DATA_DIR;
+  // An empty value must mean "default", not the current working directory:
+  // uninstall recursively deletes this path.
+  return configured && configured.trim() ? configured : join(homedir(), '.nexus-switch');
 }
 
 function storePath(): string {
@@ -133,20 +136,44 @@ function lockDownFile(path: string): void {
 
 // --- Read / write store ------------------------------------------------------
 
+/** Set when the last read could not decode the store (corrupt JSON / DPAPI). */
+let storeReadError: string | null = null;
+let storeErrorLogged = false;
+
+function noteStoreError(path: string, err: unknown): void {
+  storeReadError = err instanceof Error ? err.message : String(err);
+  if (storeErrorLogged) return;
+  storeErrorLogged = true;
+  try {
+    appendFileSync(
+      join(nexusDataDir(), 'secrets-errors.log'),
+      `${new Date().toISOString()} ${path}: ${storeReadError}\n`,
+    );
+  } catch {
+    /* diagnostics are best-effort */
+  }
+}
+
 function readStore(): Secrets {
   const path = storePath();
-  if (!existsSync(path)) return {};
+  if (!existsSync(path)) {
+    storeReadError = null;
+    return {};
+  }
   let file: StoreFile;
   try {
     file = JSON.parse(readFileSync(path, 'utf8')) as StoreFile;
-  } catch {
+  } catch (err) {
+    noteStoreError(path, err);
     return {};
   }
   try {
     const json = file.enc === 'dpapi' ? dpapiUnprotect(file.data) : file.data;
     const parsed = JSON.parse(json) as unknown;
+    storeReadError = null;
     return typeof parsed === 'object' && parsed !== null ? (parsed as Secrets) : {};
-  } catch {
+  } catch (err) {
+    noteStoreError(path, err);
     return {};
   }
 }
@@ -159,8 +186,32 @@ function writeStore(secrets: Secrets): void {
     ? { version: 1, enc: 'dpapi', data: dpapiProtect(json) }
     : { version: 1, enc: 'plain', data: json };
   const path = storePath();
-  writeFileSync(path, JSON.stringify(file), { mode: 0o600 });
-  lockDownFile(path);
+
+  // A store that failed to decode must never be silently overwritten: keep the
+  // damaged file next to the new one so a key can be recovered by hand.
+  if (storeReadError && existsSync(path)) {
+    try {
+      renameSync(path, `${path}.corrupt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    } catch {
+      /* best effort: the atomic write below still replaces the file */
+    }
+  }
+
+  const tmp = `${path}.tmp`;
+  writeFileSync(tmp, JSON.stringify(file), { mode: 0o600 });
+  lockDownFile(tmp);
+  try {
+    renameSync(tmp, path);
+  } catch {
+    writeFileSync(path, JSON.stringify(file), { mode: 0o600 });
+    lockDownFile(path);
+    try {
+      rmSync(tmp, { force: true });
+    } catch {
+      /* best effort */
+    }
+  }
+  storeReadError = null;
 }
 
 // --- Public API --------------------------------------------------------------
@@ -187,10 +238,34 @@ export function listSecretNames(): string[] {
   return Object.keys(readStore());
 }
 
+/**
+ * Versions <= 1.4.0 generated a LiteLLM proxy config here. The native gateway
+ * replaced the proxy: drop the leftover so nothing hints it is still used.
+ */
+export function purgeLegacyLitellm(): void {
+  try {
+    rmSync(join(nexusDataDir(), 'litellm'), { recursive: true, force: true });
+  } catch {
+    /* best-effort */
+  }
+}
+
 /** Remove the whole store directory (uninstall). Best-effort. */
 export function wipeSecretStore(): void {
+  const dir = nexusDataDir();
+  const resolved = resolve(dir);
+  // NEXUS_DATA_DIR is user-controlled (profiles/tests). Never let a typo turn
+  // uninstall into `rm -rf ~` or `rm -rf /`.
+  if (
+    resolved === parse(resolved).root ||
+    resolved === resolve(homedir()) ||
+    resolved === resolve(process.cwd())
+  ) {
+    console.error(`Refus de supprimer ${dir} : repertoire trop large.`);
+    return;
+  }
   try {
-    rmSync(nexusDataDir(), { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true });
   } catch {
     /* best-effort */
   }

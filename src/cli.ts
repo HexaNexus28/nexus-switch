@@ -1,10 +1,11 @@
 import { refreshOllama, refreshOpenRouter } from './core/catalog.js';
 import { gatewayKeyStatus, openRouterCredits } from './core/credits.js';
 import { runDoctor } from './core/doctor.js';
-import { KEY_VARS, keyVarFor, readKey, setKey } from './core/keys.js';
+import { deleteKey, KEY_VARS, keyVarFor, readKey, setKey } from './core/keys.js';
 import { launch, runNpm } from './core/launch.js';
 import { listProviders, loadProvider } from './core/providers.js';
-import { migrateLegacyEnv, purgeLegacyEnv, wipeSecretStore } from './core/secrets.js';
+import { migrateLegacyEnv, purgeLegacyEnv, purgeLegacyLitellm, wipeSecretStore } from './core/secrets.js';
+import { availableUpdate, refreshUpdateCache } from './core/update.js';
 import { ensureClaude, ensureOllamaModel, ensureProviderKey } from './prompt.js';
 
 function mark(ok: boolean): string {
@@ -54,7 +55,18 @@ function cmdKey(args: string[]): void {
     console.log(`${varName} enregistree dans ~/.nexus-switch.`);
     return;
   }
-  console.error('Usage: nexus key set <provider> <key>  |  nexus key list');
+  if (sub === 'delete' && provider) {
+    const varName = keyVarFor(provider);
+    if (!varName) {
+      console.error(`Provider non supporte : ${provider}`);
+      process.exitCode = 1;
+      return;
+    }
+    deleteKey(varName);
+    console.log(`${varName} supprimee de ~/.nexus-switch.`);
+    return;
+  }
+  console.error('Usage: nexus key set <provider> <cle> | nexus key list | nexus key delete <provider>');
   process.exitCode = 1;
 }
 
@@ -85,6 +97,9 @@ async function cmdLaunch(name: string, rest: string[]): Promise<void> {
     process.exitCode = 1;
     return;
   }
+  const update = availableUpdate();
+  if (update) console.error(`nexus ${update} disponible -> nexus update`);
+  void refreshUpdateCache();
   await launch(provider, model, passthrough);
 }
 
@@ -97,7 +112,8 @@ async function cmdCredits(): Promise<void> {
 }
 
 function cmdUpdate(): void {
-  runNpm(['i', '-g', '@hexanexus/nexus-switch@latest']);
+  const status = runNpm(['i', '-g', '@hexanexus/nexus-switch@latest']);
+  if (status !== 0) process.exitCode = status ?? 1;
 }
 
 function cmdUninstall(): void {
@@ -106,7 +122,8 @@ function cmdUninstall(): void {
   wipeSecretStore();
   for (const varName of [...Object.values(KEY_VARS), 'NEXUS_PROXY_KEY']) purgeLegacyEnv(varName);
   console.log('Secrets et config supprimes (~/.nexus-switch + env global purge).');
-  runNpm(['rm', '-g', '@hexanexus/nexus-switch']);
+  const status = runNpm(['rm', '-g', '@hexanexus/nexus-switch']);
+  if (status !== 0) process.exitCode = status ?? 1;
 }
 
 function cmdHelp(): void {
@@ -122,6 +139,7 @@ function cmdHelp(): void {
       '  nexus refresh',
       '  nexus key set <provider> <key>',
       '  nexus key list',
+      '  nexus key delete <provider>',
       '  nexus update | uninstall',
       '',
       `Providers : ${listProviders().join(', ')}`,
@@ -137,9 +155,12 @@ async function main(): Promise<void> {
   } catch {
     /* migration is best-effort; never block a launch on it */
   }
+  purgeLegacyLitellm();
   const args = process.argv.slice(2);
   if (args.length === 0) {
     if (process.stdin.isTTY) {
+      // Background: the TUI stays open long enough; the NEXT run shows the result.
+      void refreshUpdateCache();
       const { runTui } = await import('./ui/run.js');
       await runTui();
     } else {

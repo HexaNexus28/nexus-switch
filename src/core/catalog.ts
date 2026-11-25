@@ -1,7 +1,24 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import type { Provider, ProviderModel } from '../types/provider.types.js';
 import { providersPath } from './providers.js';
+
+/** Write a catalog file without ever leaving a half-written JSON behind. */
+function writeFileAtomic(path: string, content: string): void {
+  const tmp = `${path}.tmp`;
+  writeFileSync(tmp, content);
+  try {
+    renameSync(tmp, path);
+  } catch {
+    // Windows can refuse a rename over an existing file in rare ACL cases.
+    writeFileSync(path, content);
+    try {
+      rmSync(tmp, { force: true });
+    } catch {
+      /* best effort */
+    }
+  }
+}
 
 interface OpenRouterModel {
   id: string;
@@ -12,18 +29,29 @@ interface OpenRouterModel {
  * exist upstream (the source of 404s on launch). Returns the surviving count.
  * Adding new models stays a curation decision, not automated here.
  */
-export async function refreshOpenRouter(): Promise<{ kept: number; removed: string[] }> {
-  const res = await fetch('https://openrouter.ai/api/v1/models');
+export async function refreshOpenRouter(
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ kept: number; removed: string[] }> {
+  const res = await fetchImpl('https://openrouter.ai/api/v1/models', { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`OpenRouter API responded ${res.status}`);
-  const body = (await res.json()) as { data: OpenRouterModel[] };
+  const body = (await res.json()) as { data?: OpenRouterModel[] };
+  if (!Array.isArray(body.data) || body.data.length === 0) {
+    throw new Error('OpenRouter: liste de modeles vide, catalogue inchange.');
+  }
   const upstream = new Set(body.data.map((m) => m.id));
 
   const file = providersPath('openrouter');
   const provider = JSON.parse(readFileSync(file, 'utf8')) as Provider;
   const removed = provider.models.filter((m) => !upstream.has(m.id)).map((m) => m.id);
-  provider.models = provider.models.filter((m) => upstream.has(m.id));
+  const kept = provider.models.filter((m) => upstream.has(m.id));
+  // Never write an empty catalog: loadProvider rejects it and the provider
+  // would disappear from the TUI until the user restores the file by hand.
+  if (kept.length === 0) {
+    throw new Error('OpenRouter: aucun modele local ne survit, catalogue inchange.');
+  }
+  provider.models = kept;
 
-  writeFileSync(file, `${JSON.stringify(provider, null, 2)}\n`);
+  writeFileAtomic(file, `${JSON.stringify(provider, null, 2)}\n`);
   return { kept: provider.models.length, removed };
 }
 
@@ -70,6 +98,6 @@ export function refreshOllama(): { models: number } {
     provider.default = provider.models[0].id;
   }
 
-  writeFileSync(file, `${JSON.stringify(provider, null, 2)}\n`);
+  writeFileAtomic(file, `${JSON.stringify(provider, null, 2)}\n`);
   return { models: provider.models.length };
 }

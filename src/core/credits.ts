@@ -17,7 +17,10 @@ export async function openRouterCredits(): Promise<string> {
   }
   if (!api) return 'pas de credits_api';
   try {
-    const res = await fetch(api, { headers: { Authorization: `Bearer ${key}` } });
+    const res = await fetch(api, {
+      headers: { Authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(15_000),
+    });
     if (!res.ok) return `API ${res.status}`;
     const body = (await res.json()) as OpenRouterCredits;
     const total = body.data?.total_credits ?? 0;

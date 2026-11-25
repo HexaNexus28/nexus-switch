@@ -1,13 +1,73 @@
 import { spawn, spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import type { Provider } from '../types/provider.types.js';
 import { startGateway, type RunningGateway } from '../gateway/server.js';
-import { applyProviderEnv, resetProviderEnv } from './env.js';
+import { applyContextWindow, applyModelAliases, applyProviderEnv, resetProviderEnv } from './env.js';
 import { keyVarFor, readKey } from './keys.js';
+
+/** A resolved way to start claude that works on POSIX and through npm's .cmd shims. */
+export type ClaudeCommand =
+  | { kind: 'direct'; file: string; args: string[] }
+  | { kind: 'cmd-shim'; comspec: string; shim: string };
+
+/** Quote one argument for a cmd.exe /c command line (Windows .cmd fallback). */
+function quoteCmdArg(arg: string): string {
+  if (arg === '') return '""';
+  if (!/[\s"&|<>^()]/.test(arg)) return arg;
+  return `"${arg.replace(/"/g, '\\"')}"`;
+}
+
+/** Standard npm layouts for the JS entrypoint behind a claude.cmd shim. */
+function shimJsEntry(shim: string): string | null {
+  const dir = dirname(shim);
+  const candidates = [
+    join(dir, 'node_modules', '@anthropic-ai', 'claude-code', 'cli.js'), // global npm prefix
+    join(dir, '..', '@anthropic-ai', 'claude-code', 'cli.js'), // local node_modules/.bin
+    join(dir, '..', 'node_modules', '@anthropic-ai', 'claude-code', 'cli.js'),
+    join(dir, '..', 'lib', 'node_modules', '@anthropic-ai', 'claude-code', 'cli.js'),
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+/**
+ * Resolve the claude executable ONCE, for both detection and launch.
+ *
+ * `where claude` finds npm's `claude.cmd`, but Node's spawn without a shell only
+ * resolves `.exe` (CreateProcess appends .exe); spawning the shim path directly
+ * therefore fails with ENOENT on every npm install. Prefer a native .exe, then
+ * run the shim's JS entrypoint with node (no cmd.exe quoting at all), and only
+ * fall back to cmd.exe for unusual shim layouts.
+ */
+export function resolveClaude(): ClaudeCommand | null {
+  const probe = process.platform === 'win32' ? 'where' : 'which';
+  const result = spawnSync(probe, ['claude'], { encoding: 'utf8' });
+  if (result.status !== 0) return null;
+  const hits = (result.stdout ?? '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (hits.length === 0) return null;
+
+  const exe = hits.find((p) => p.toLowerCase().endsWith('.exe'));
+  if (exe) return { kind: 'direct', file: exe, args: [] };
+
+  const shim = hits.find((p) => /\.(cmd|bat)$/i.test(p));
+  if (shim) {
+    const js = shimJsEntry(shim);
+    if (js) return { kind: 'direct', file: process.execPath, args: [js] };
+    return { kind: 'cmd-shim', comspec: process.env.ComSpec ?? 'cmd.exe', shim };
+  }
+
+  return { kind: 'direct', file: hits[0]!, args: [] };
+}
 
 /** Is the `claude` CLI on PATH? Required for every provider, Ollama included. */
 export function claudeExists(): boolean {
-  const probe = process.platform === 'win32' ? 'where' : 'which';
-  return spawnSync(probe, ['claude'], { stdio: 'ignore' }).status === 0;
+  return resolveClaude() !== null;
 }
 
 /**
@@ -36,12 +96,12 @@ export function releaseStdin(): void {
  * install/update/uninstall silently failed after the user accepted the prompt.
  * Routing through cmd.exe (a real executable) makes it actually run.
  */
-export function runNpm(args: string[]): void {
-  if (process.platform === 'win32') {
-    spawnSync('cmd', ['/c', 'npm', ...args], { stdio: 'inherit' });
-  } else {
-    spawnSync('npm', args, { stdio: 'inherit' });
-  }
+export function runNpm(args: string[]): number | null {
+  const result =
+    process.platform === 'win32'
+      ? spawnSync('cmd', ['/c', 'npm', ...args], { stdio: 'inherit' })
+      : spawnSync('npm', args, { stdio: 'inherit' });
+  return result.status;
 }
 
 /**
@@ -56,6 +116,9 @@ function applyGatewayEnv(gateway: RunningGateway, model: string): void {
   // so the gateway's bearer token is the only credential in play.
   delete process.env.ANTHROPIC_API_KEY;
   process.env.ANTHROPIC_MODEL = model;
+  // Claude Code's background/alias requests must land on the model the gateway
+  // actually serves, not on an Anthropic haiku id the upstream has never heard of.
+  applyModelAliases(model);
   if (!/(?:^|\/)claude-/.test(model)) {
     process.env.MAX_THINKING_TOKENS = '0';
     process.env.CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING = '1';
@@ -116,8 +179,10 @@ function runOllama(model: string, rest: string[]): void {
   const result = spawnSync('ollama', args, { stdio: 'inherit' });
   if (result.error) {
     console.error(`Echec ollama : ${result.error.message}`);
-  } else if (result.status && result.status !== 0) {
+    process.exitCode = 1;
+  } else if (result.status !== 0) {
     console.error(`ollama a quitte (code ${result.status}). Le modele '${model}' existe-t-il ? -> ollama list`);
+    process.exitCode = result.status ?? 1;
   }
 }
 
@@ -133,7 +198,21 @@ function runOllama(model: string, rest: string[]): void {
  */
 function runClaude(rest: string[]): Promise<void> {
   return new Promise((resolve) => {
-    const child = spawn('claude', rest, { stdio: 'inherit' });
+    const command = resolveClaude();
+    if (!command) {
+      console.error('Echec claude : introuvable sur le PATH.');
+      process.exitCode = 1;
+      resolve();
+      return;
+    }
+    const child =
+      command.kind === 'direct'
+        ? spawn(command.file, [...command.args, ...rest], { stdio: 'inherit' })
+        : spawn(
+            command.comspec,
+            ['/d', '/s', '/c', `"${[command.shim, ...rest].map(quoteCmdArg).join(' ')}"`],
+            { stdio: 'inherit', windowsVerbatimArguments: true },
+          );
     child.on('error', (err) => {
       console.error(`Echec claude : ${err.message}`);
       process.exitCode = 1;
@@ -146,6 +225,20 @@ function runClaude(rest: string[]): Promise<void> {
       resolve();
     });
   });
+}
+
+/**
+ * Args actually handed to claude: --bare prepended when the provider's quota
+ * cannot carry the full prompt, unless the user opted out or passed it already.
+ */
+export function claudeArgs(provider: Provider, rest: string[]): string[] {
+  if (!provider.bare || rest.includes('--bare') || process.env.NEXUS_FULL_PROMPT === '1') return rest;
+  console.error(
+    `${provider.name} : mode reduit (--bare, sans CLAUDE.md/MCP/hooks), le quota gratuit ne porte pas le prompt complet.
+` +
+      'Palier payant ? NEXUS_FULL_PROMPT=1 pour le desactiver.',
+  );
+  return ['--bare', ...rest];
 }
 
 /**
@@ -166,6 +259,8 @@ export async function launch(provider: Provider, model: string, rest: string[]):
   // first — a lingering parent read steals the child's first keystrokes.
   releaseStdin();
   if (provider.type === 'ollama') {
+    applyModelAliases(model);
+    applyContextWindow(provider, model);
     warnOllamaTier(provider, model);
     runOllama(model, rest);
     return;
@@ -177,7 +272,8 @@ export async function launch(provider: Provider, model: string, rest: string[]):
       return;
     }
     applyGatewayEnv(gateway, model);
-    await runClaude(rest);
+    applyContextWindow(provider, model);
+    await runClaude(claudeArgs(provider, rest));
     // Close only once claude has exited: the gateway serves every request of the
     // session, and closing it is what lets this process end. Close regardless of
     // claude's exit code — the process is going away either way.

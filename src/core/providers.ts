@@ -32,6 +32,7 @@ function validate(name: string, data: unknown): Provider {
       throw new Error(`${name}: gateway provider needs api.base_url and api.model_prefix`);
     }
   }
+  if (p.bare !== undefined && typeof p.bare !== 'boolean') throw new Error(`${name}: bare must be a boolean`);
   return data as Provider;
 }
 

@@ -1,8 +1,9 @@
 {
   "type": "gateway",
   "name": "Groq",
+  "bare": true,
   "default": "groq/openai/gpt-oss-120b",
-  "setup": "nexus key set groq <cle> (console.groq.com). Compte requis, sans CB. Tier gratuit avec rate limits ; facturation au-dela. Source : console.groq.com/docs/models, groq.com/pricing. Ids verifies contre l'API live le 2026-10-08",
+  "setup": "nexus key set groq <cle> (console.groq.com). Compte requis, sans CB. Tier gratuit : 8000 tokens/min par modele (mesure 2026-11-25), trop peu pour le prompt complet de Claude Code (24-37k) -> lance en --bare ; NEXUS_FULL_PROMPT=1 en Dev Tier. Source : console.groq.com/docs/models, groq.com/pricing. Ids verifies contre l'API live le 2026-10-08",
   "api": {
     "base_url": "https://api.groq.com/openai/v1",
     "model_prefix": "groq/"

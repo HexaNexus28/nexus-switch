@@ -175,6 +175,8 @@ export interface OpenAIStreamChunk {
     finish_reason?: string | null;
   }>;
   usage?: OpenAIUsage | null;
+  /** Groq reports the final usage here instead of the top-level `usage`. */
+  x_groq?: { usage?: OpenAIUsage | null } | null;
 }
 
 // --- Gateway ------------------------------------------------------------------

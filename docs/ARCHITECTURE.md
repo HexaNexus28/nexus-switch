@@ -5,51 +5,60 @@ It runs anywhere the `claude` CLI runs (Windows, macOS, Linux) as a single
 Node/TypeScript codebase. The terminal UI is rendered with Ink (React for the
 terminal) — it stays a keyboard-driven TUI, not a web app.
 
-> Current architecture (`1.1.x`). The `0.2.x` line is the legacy PowerShell
-> implementation it replaced. See [Migration](#migration-from-02x).
-
 ## Runtime flow
 
 ```text
 User terminal
   -> nexus (Ink TUI)            interactive provider/model selection
-  -> core/providers            load + validate providers/*.json
-  -> core/secrets              resolve provider key + proxy master key from the store
-  -> core/env                  reset, then set ANTHROPIC_* on the process
-  -> core/launch               spawn claude (or `ollama launch claude`)
-  -> back to the TUI picker    when claude exits or a prerequisite fails (hub loop)
+  -> core/providers             load + validate providers/*.json
+  -> core/keys + core/secrets   resolve the provider key from the store
+  -> core/env                   reset, then set ANTHROPIC_* on the process
+  -> core/launch                spawn claude (or `ollama launch claude`)
+  -> back to the TUI picker     when claude exits or a prerequisite fails (hub loop)
 ```
 
-TUI invariant: everything that READS stdin lives inside Ink (picker, [o/N]
-dialogs, key input). A readline prompt after an Ink teardown loses keystrokes
-on Windows (cancelled raw console read), so readline prompts exist only on the
-direct CLI path (`nexus <provider>`), where Ink never ran. Console-bound
-actions (npm/pip installs, ollama pull, proxy boot, claude) run BETWEEN Ink
-sessions with an inherited terminal.
-
-For direct Anthropic-compatible providers:
+For `gateway`-typed providers (Groq, Gemini, Cerebras, Mistral, NVIDIA NIM):
 
 ```text
 Claude Code
-  -> ANTHROPIC_BASE_URL=https://openrouter.ai/api
-  -> OpenRouter
+  -> ANTHROPIC_BASE_URL=http://127.0.0.1:<ephemeral port>
+  -> gateway/server.ts          in-process loopback HTTP server
+       translate.ts             Anthropic /v1/messages <-> OpenAI /chat/completions
+       stream.ts                OpenAI SSE -> Anthropic SSE
+  -> provider's OpenAI-compatible endpoint
 ```
 
-For LiteLLM-backed providers:
+The gateway binds an ephemeral loopback port and uses a per-session random
+bearer token. The provider API key lives only inside the Nexus process and is
+injected into the upstream `Authorization` header; it is never written to the
+child's environment.
 
-```text
-Claude Code
-  -> ANTHROPIC_BASE_URL=http://localhost:4000
-  -> LiteLLM Gateway
-  -> Groq / Gemini / Cerebras / Mistral / NVIDIA NIM
-```
+For OpenRouter, Claude Code talks to OpenRouter's Anthropic-compatible endpoint
+directly (`providers/openrouter.json` `env` template). For Ollama, Nexus runs
+`ollama launch claude --model <model>`.
 
-For Ollama:
+## Model aliases and background work
 
-```text
-nexus
-  -> ollama launch claude --model <model>
-```
+Claude Code resolves its `haiku` model (used for titles, summaries and other
+background work) from `ANTHROPIC_DEFAULT_HAIKU_MODEL`, and `/model` aliases from
+the other `ANTHROPIC_DEFAULT_*_MODEL` variables. A third-party provider serves
+none of the Anthropic model ids, so for non-Anthropic providers Nexus points
+every alias at the selected model. Without this, a background request for
+`claude-haiku-*` reaches Groq/Gemini/... and 404s.
+
+Same for the context window: Claude Code assumes 1M tokens for an unknown model
+id, so it never auto-compacts before the provider's real limit. Nexus exports
+`CLAUDE_CODE_MAX_CONTEXT_TOKENS` from the catalog's `context` (unset when the
+catalog has none; never for native Anthropic).
+
+## TUI invariant
+
+Everything that READS stdin lives inside Ink (picker, `[o/N]` dialogs, key
+input). A readline prompt after an Ink teardown loses keystrokes on Windows
+(cancelled raw console read), so readline prompts exist only on the direct CLI
+path (`nexus <provider>`), where Ink never ran. Console-bound actions (npm
+installs, ollama pull, claude itself) run BETWEEN Ink sessions with an inherited
+terminal.
 
 ## Module layout
 
@@ -57,79 +66,87 @@ nexus
 src/
   core/
     providers.ts        load + validate providers/*.json (typed)
-    secrets.ts          per-user secret store (~/.nexus-switch); DPAPI/plaintext; legacy-env migration
-    keys.ts             provider -> secret name map; reads/writes via the store
-    env.ts              reset + resolve ANTHROPIC_* template and model rules before launch
-    launch.ts           unified pipeline: reset env, branch ollama/claude, spawn
-    proxy.ts            LiteLLM gateway lifecycle; secrets injected only into the child
-    litellm-config.ts   generate the gateway YAML from providers + present keys
-    catalog.ts          refresh model lists live from provider APIs
-    doctor.ts           diagnostics + provider key validation
+    secrets.ts          per-user secret store (~/.nexus-switch); DPAPI/plaintext
+    keys.ts             provider -> secret name map
+    env.ts              reset + resolve ANTHROPIC_* and model alias variables
+    launch.ts           unified pipeline; resolves claude.exe / claude.cmd
+    catalog.ts          refresh model lists from provider APIs
+    credits.ts          OpenRouter balance + key presence
+    doctor.ts           diagnostics + key validation
+    update.ts           daily npm check (cached), "newer version" notice; never self-installs
+  gateway/
+    server.ts           loopback HTTP server, auth, SSE/JSON responses
+    translate.ts        Anthropic <-> OpenAI request/response translation
+    stream.ts           OpenAI SSE -> Anthropic SSE, usage extraction
   ui/
-    App.tsx        Ink TUI root
+    App.tsx             Ink TUI root and prerequisite chain
     ProviderList.tsx
     ModelPicker.tsx
+    KeyPrompt.tsx
+    Confirm.tsx
+    Header.tsx
   types/
     provider.types.ts
-bin/nexus.js       entrypoint (boots Ink for the bare `nexus` command)
-providers/*.json   provider + model catalog (single source of truth)
+    gateway.types.ts
+bin/nexus.js            entrypoint (boots Ink for the bare `nexus` command)
+providers/*.json        provider + model catalog (single source of truth)
 ```
+
+## Launcher resolution
+
+On Windows, npm installs `claude` as a `.cmd` shim, which Node's `spawn` cannot
+execute directly. `resolveClaude()` resolves the command once: it prefers a
+native `claude.exe`, then runs the shim's `cli.js` through `node`, and only
+falls back to `cmd.exe /d /s /c` for unusual layouts. Detection
+(`claudeExists`) and launch (`runClaude`) share that resolution, so a shim
+cannot be "present" for one and "missing" for the other.
 
 ## Secret storage
 
-Provider keys and the proxy master key live in a per-user store at
-`~/.nexus-switch/` — never in global environment variables, never in the repo.
-They are injected **only** into the spawned child (the `claude` process, or the
-LiteLLM gateway), so no other process inherits them.
+Provider keys live in a per-user store at `~/.nexus-switch/` — never in global
+environment variables, never in the repo. They are injected only into the
+gateway process, which forwards them upstream.
 
 ```text
 win32        -> DPAPI (CurrentUser) encrypted blob; fallback plaintext + owner-only ACL (icacls)
 darwin/linux -> plaintext file, chmod 0600, inside a 0700 directory
 ```
 
-On first run, any key still in a legacy global env var (pre-1.1 users) is
-migrated into the store and purged from the environment — transparently.
+Writes are atomic (`.tmp` + rename). If a store cannot be decoded, it is kept as
+`secrets.json.corrupt-<timestamp>` before a new store is written, and the error
+is logged to `secrets-errors.log` rather than silently reported as "no keys".
+`NEXUS_DATA_DIR` overrides the directory; `wipeSecretStore` refuses to delete a
+filesystem root or the user's home directory.
 
 ## Command surface
-
-`nexus` is an npm global bin — **no shell profile injection**. Former shell
-functions become subcommands, so there is zero profile pollution on any OS.
 
 | Command | Purpose |
 |---|---|
 | `nexus` | interactive TUI |
-| `nexus <provider> [model] [--flags]` | direct launch |
-| `nexus doctor` | diagnostics (claude present, key validity, proxy) |
-| `nexus refresh` | refresh model catalog from provider APIs |
-| `nexus key set <provider> <key>` | persist a provider key (replaces `claude-set-key`) |
-| `nexus key list` | list configured keys (masked) |
-| `nexus proxy start` / `nexus proxy stop` | manage the LiteLLM gateway |
+| `nexus <provider> [model] [-- claude flags]` | direct launch |
+| `nexus doctor` | diagnostics (claude present, key validity) |
+| `nexus refresh` | refresh OpenRouter + Ollama catalogs |
+| `nexus key set <provider> <key>` | persist a provider key |
+| `nexus key list` | list configured keys |
+| `nexus key delete <provider>` | remove a provider key |
 | `nexus credits` | provider credit/status |
 | `nexus update` / `nexus uninstall` | lifecycle |
 
 ## Design rules
 
-- **`claude` CLI is a hard dependency, not a provider.** Providers (OpenRouter,
-  Groq, Ollama, LiteLLM) are token backends; `claude` is the agent itself. Every
-  path terminates in `claude` (the Ollama path runs `ollama launch claude`).
-  `core/launch` guards on a `claude` pre-flight and offers an opt-in install if absent.
+- **`claude` CLI is a hard dependency, not a provider.** Every path terminates in
+  `claude` (the Ollama path runs `ollama launch claude`).
 - One terminal = one active provider context.
-- No global `settings.local.json` routing state.
-- No shell profile injection — `nexus` is a self-contained bin.
+- No global `settings.local.json` routing state and no shell profile injection.
 - Provider/model catalog lives in `providers/*.json`; refreshable via `nexus refresh`.
-- Secrets live in a per-user store (`~/.nexus-switch`, DPAPI/0600), injected only into the child — never global env, never in the repo.
-- LiteLLM is an optional local gateway, not bundled; its config is generated from the provider JSONs + present keys (no committed YAML).
-- The LiteLLM gateway is locked with an auto-generated master key (`NEXUS_PROXY_KEY`); it is not a provider credential.
-- TypeScript strict; provider types in `src/types/`.
+- Secrets live in `~/.nexus-switch`, injected only into the gateway — never the
+  global env, never the repo.
+- The gateway is in-process: it must never block the event loop while claude is
+  running (hence `spawn`, not `spawnSync`).
+- TypeScript strict; provider/wire types live in `src/types/`.
 
 ## Extension points
 
-- Add a provider JSON file (LiteLLM gateway entries are generated from it automatically).
+- Add a provider JSON file.
 - Add a key mapping in `core/keys` (`KEY_VARS`) if a new secret variable is needed.
-
-## Migration from 0.2.x
-
-The `0.2.x` line is a single PowerShell script (`src/NexusSwitch.ps1`) injected
-into the user's PS profile, Windows-only. `1.0.0` replaces it with the Node/TS
-modules above. Breaking changes: drops the PowerShell entrypoint, and
-`claude-set-key` / `claude-proxy-start` become `nexus key set` / `nexus proxy start`.
+- Add a provider to `src/core/credits.ts` if it exposes a status endpoint.

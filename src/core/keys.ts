@@ -3,7 +3,7 @@
 // resolution like ${OPENROUTER_API_KEY}); now the values live in the
 // secret store (core/secrets.ts), never in the global environment.
 
-import { getSecret, setSecret } from './secrets.js';
+import { deleteSecret, getSecret, setSecret } from './secrets.js';
 
 export const KEY_VARS: Readonly<Record<string, string>> = {
   openrouter: 'OPENROUTER_API_KEY',
@@ -24,4 +24,8 @@ export function readKey(varName: string): string | undefined {
 
 export function setKey(varName: string, value: string): void {
   setSecret(varName, value);
+}
+
+export function deleteKey(varName: string): void {
+  deleteSecret(varName);
 }

@@ -1,17 +1,7 @@
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { Box, Text, useStdout } from 'ink';
+import { availableUpdate, CURRENT_VERSION } from '../core/update.js';
 
-// dist/ui/Header.js -> ../../package.json (same layout in the published package).
-const VERSION: string = (() => {
-  try {
-    const pkg = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'package.json');
-    return `v${(JSON.parse(readFileSync(pkg, 'utf8')) as { version: string }).version}`;
-  } catch {
-    return '';
-  }
-})();
+const VERSION = CURRENT_VERSION ? `v${CURRENT_VERSION}` : '';
 
 /**
  * One-line signature. The hub re-renders the TUI after every claude session, so
@@ -28,7 +18,9 @@ export function Header() {
   // guaranteed here — measure the plain strings and pad deterministically.
   const tagline = cols >= 72 ? '  ·  AI model router · HexaNexus' : '';
   const left = `◢ NEXUS SWITCH${tagline}`;
-  const right = VERSION ? VERSION : '';
+  const update = availableUpdate();
+  const notice = update ? `  ↑ ${update} dispo · nexus update` : '';
+  const right = `${VERSION}${notice}`;
   const gap = Math.max(2, cols - 2 - left.length - right.length);
 
   return (
@@ -40,6 +32,7 @@ export function Header() {
         {VERSION && cols >= 56 ? (
           <Text dimColor>{`${' '.repeat(gap)}${VERSION}`}</Text>
         ) : null}
+        {notice && cols >= 56 ? <Text color="yellow">{notice}</Text> : null}
       </Text>
     </Box>
   );

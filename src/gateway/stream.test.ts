@@ -40,7 +40,7 @@ test('text-only stream: start, one text block, delta, stop, usage in message_del
   assert.deepEqual(delta.usage, { input_tokens: 29631, output_tokens: 2 });
 });
 
-test('tool call stream: text block closes, tool_use opens with id+name, args as input_json_delta', () => {
+test('tool call stream: text block closes, tool_use is emitted complete at the end', () => {
   const t = createStreamTranslator('m');
   let out = t.push({ id: 'c2', choices: [{ delta: { content: 'Let me look. ' } }] });
   out += t.push({
@@ -57,9 +57,8 @@ test('tool call stream: text block closes, tool_use opens with id+name, args as 
       'message_start',
       'content_block_start', // text
       'content_block_delta',
-      'content_block_stop', // text closed by tool start
-      'content_block_start', // tool_use
-      'content_block_delta',
+      'content_block_stop', // text closed by the first tool delta
+      'content_block_start', // tool_use, emitted by end()
       'content_block_delta',
       'content_block_stop',
       'message_delta',
@@ -70,8 +69,8 @@ test('tool call stream: text block closes, tool_use opens with id+name, args as 
   assert.equal(toolStart.index, 1);
   assert.deepEqual(toolStart.content_block, { type: 'tool_use', id: 'call_9', name: 'Bash', input: {} });
   const argDelta = events[5]!.data as { index: number; delta: { type: string; partial_json: string } };
-  assert.deepEqual(argDelta, { type: 'content_block_delta', index: 1, delta: { type: 'input_json_delta', partial_json: '{"command":' } });
-  const msgDelta = events[8]!.data as { delta: { stop_reason: string } };
+  assert.deepEqual(argDelta, { type: 'content_block_delta', index: 1, delta: { type: 'input_json_delta', partial_json: '{"command":"ls"}' } });
+  const msgDelta = events[7]!.data as { delta: { stop_reason: string } };
   assert.equal(msgDelta.delta.stop_reason, 'tool_use');
 });
 
@@ -85,10 +84,43 @@ test('parallel tool calls map to distinct block indexes', () => {
     choices: [{ delta: { tool_calls: [{ index: 1, id: 'b', function: { name: 'Grep', arguments: '{}' } }] } }],
   });
   out += t.end();
-  const starts = parse(out).filter((e) => e.event === 'content_block_start');
+  const events = parse(out);
+  const starts = events.filter((e) => e.event === 'content_block_start');
   assert.equal(starts.length, 2);
   assert.equal((starts[0]!.data as { index: number }).index, 0);
   assert.equal((starts[1]!.data as { index: number }).index, 1);
+});
+
+test('interleaved parallel tool arguments stay complete and sequential', () => {
+  const t = createStreamTranslator('m');
+  let out = t.push({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'a', function: { name: 'Read', arguments: '{"p":' } }] } }] });
+  out += t.push({ choices: [{ delta: { tool_calls: [{ index: 1, id: 'b', function: { name: 'Grep', arguments: '{"q":' } }] } }] });
+  out += t.push({ choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '1}' } }] } }] });
+  out += t.push({ choices: [{ delta: { tool_calls: [{ index: 1, function: { arguments: '2}' } }] } }] });
+  out += t.end();
+  const events = parse(out);
+  const deltas = events.filter((e) => e.event === 'content_block_delta');
+  assert.deepEqual(deltas.map((d) => (d.data as { delta: { partial_json: string } }).delta.partial_json), ['{"p":1}', '{"q":2}']);
+  const toolStarts = events.filter((e) => e.event === 'content_block_start');
+  assert.equal(toolStarts.length, 2);
+  // No delta may target a block after its stop.
+  const stopped = new Set<number>();
+  for (const event of events) {
+    const index = (event.data as { index?: number }).index;
+    if (event.event === 'content_block_stop' && index !== undefined) stopped.add(index);
+    if (event.event === 'content_block_delta' && index !== undefined) assert.equal(stopped.has(index), false);
+  }
+});
+
+test('Groq x_groq.usage is reported in message_delta', () => {
+  const t = createStreamTranslator('m');
+  let out = t.push({ id: 'c4', choices: [{ delta: { content: 'hi' } }] });
+  out += t.push({ choices: [], x_groq: { usage: { prompt_tokens: 123, completion_tokens: 4 } } });
+  out += t.end();
+  const msgDelta = parse(out).find((e) => e.event === 'message_delta')!.data as {
+    usage: { input_tokens: number; output_tokens: number };
+  };
+  assert.deepEqual(msgDelta.usage, { input_tokens: 123, output_tokens: 4 });
 });
 
 test('empty upstream (no chunks) still yields a valid message envelope', () => {
@@ -114,4 +146,16 @@ test('SSE parser: split events across feeds, [DONE] swallowed, CRLF tolerated', 
   const second = p.feed('ices":[{"delta":{"content":"b"}}]}\n\ndata: [DONE]\n\n');
   assert.equal(second.length, 1);
   assert.equal(second[0]!.choices?.[0]?.delta?.content, 'b');
+});
+
+test('SSE parser flush keeps a final event without a trailing blank line', () => {
+  const p = createSseParser();
+  const chunks = p.feed(
+    'data: {"choices":[{"delta":{"content":"a"}}]}\n\ndata: {"choices":[],"usage":{"prompt_tokens":7,"completion_tokens":1}}',
+  );
+  assert.equal(chunks.length, 1);
+  const tail = p.flush();
+  assert.equal(tail.length, 1);
+  assert.deepEqual(tail[0]!.usage, { prompt_tokens: 7, completion_tokens: 1 });
+  assert.deepEqual(p.flush(), []);
 });

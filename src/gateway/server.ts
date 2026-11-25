@@ -46,6 +46,10 @@ function debugLog(line: string): void {
   }
 }
 
+const QUOTA_HINT =
+  'nexus : requete plus grosse que le quota tokens/minute du provider. ' +
+  'Relance avec `-- --bare` (prompt reduit), choisis un autre provider, ou passe au palier payant.';
+
 /** Upstream HTTP status -> Anthropic error type (what Claude Code knows to render/retry). */
 function errorType(status: number): string {
   switch (status) {
@@ -53,7 +57,6 @@ function errorType(status: number): string {
     case 401: return 'authentication_error';
     case 403: return 'permission_error';
     case 404: return 'not_found_error';
-    case 413: return 'request_too_large';
     case 429: return 'rate_limit_error';
     case 503:
     case 529: return 'overloaded_error';
@@ -64,6 +67,17 @@ function errorType(status: number): string {
 function sendError(res: ServerResponse, status: number, message: string): void {
   res.writeHead(status, { 'content-type': 'application/json' });
   res.end(JSON.stringify({ type: 'error', error: { type: errorType(status), message } }));
+}
+
+/**
+ * SSE errors happen after the 200 header is on the wire. Emitting an Anthropic
+ * `error` event lets Claude Code retry; closing with message_stop would instead
+ * present a truncated answer as a complete success.
+ */
+function sendStreamError(res: ServerResponse, message: string): void {
+  if (res.destroyed || res.writableEnded) return;
+  res.write(`event: error\ndata: ${JSON.stringify({ type: 'error', error: { type: 'api_error', message } })}\n\n`);
+  res.end();
 }
 
 /** Pull the human-readable message out of an OpenAI-shaped error body, else raw text. */
@@ -124,6 +138,14 @@ async function handleMessages(
   if (!upstream.ok) {
     const text = await upstream.text();
     debugLog(`upstream ${upstream.status}: ${text.slice(0, 500)}`);
+    if (upstream.status === 413) {
+      // Claude Code renders any 413 as its own "max 32MB / images" message and
+      // drops ours. A provider 413 is a token quota (Groq free tier: 8000 TPM vs
+      // ~24k for a full Claude Code prompt): retrying never helps, so answer 400.
+      sendError(res, 400, `${upstreamErrorMessage(text)}
+${QUOTA_HINT}`);
+      return;
+    }
     sendError(res, upstream.status, upstreamErrorMessage(text));
     return;
   }
@@ -142,7 +164,7 @@ async function handleMessages(
   const parser = createSseParser();
   const reader = upstream.body?.getReader();
   if (!reader) {
-    res.end(translator.end());
+    sendStreamError(res, 'Upstream returned no stream body.');
     return;
   }
   const decoder = new TextDecoder();
@@ -154,11 +176,16 @@ async function handleMessages(
         res.write(translator.push(chunk));
       }
     }
-  } catch {
-    // Upstream died mid-stream: close the message cleanly so claude can retry,
-    // rather than leaving a dangling SSE connection.
+    // Flush both buffers: a multi-byte character can be split across the last
+    // read, and some providers omit the blank line after the final SSE event.
+    for (const chunk of parser.feed(decoder.decode())) res.write(translator.push(chunk));
+    for (const chunk of parser.flush()) res.write(translator.push(chunk));
+    res.end(translator.end());
+  } catch (err) {
+    if (clientGone.aborted) return; // client cancelled; nothing to answer
+    debugLog(`stream interrupted: ${err instanceof Error ? err.message : String(err)}`);
+    sendStreamError(res, 'Upstream stream interrupted.');
   }
-  res.end(translator.end());
 }
 
 export function startGateway(options: GatewayOptions): Promise<RunningGateway> {
