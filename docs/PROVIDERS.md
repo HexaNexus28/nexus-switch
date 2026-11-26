@@ -71,7 +71,7 @@ Catalog fields that drive it:
 | Field | Where | Meaning |
 |---|---|---|
 | `class` | model | `large` or `fast`; a model only falls back to the same class. No class = no fallback. |
-| `fallback_order` | provider | Rank in the automatic chain (Cerebras 1, Gemini 2, NVIDIA 3, Mistral 4, Groq 5). |
+| `fallback_order` | provider | Rank in the automatic chain (Gemini 2, NVIDIA 3, Mistral 4, Groq 5). Cerebras has none: no permanent free tier (official FAQ, checked 2026-11-26). |
 | `max_request_tokens` | provider | Groq: 8000. Bigger requests skip this provider as a fallback. |
 
 Only `free` and `quota` models are ever picked; on each fallback provider its

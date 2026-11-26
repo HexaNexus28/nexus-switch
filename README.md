@@ -21,8 +21,8 @@ nexus
 ---
 
 Want to use [Claude Code](https://www.anthropic.com/claude-code) without a paid Anthropic plan?
-Nexus Switch runs it on the free tiers of Groq, Gemini, Cerebras, Mistral, NVIDIA, OpenRouter
-and Ollama — pick a model in a menu, and you are coding.
+Nexus Switch runs it on the free tiers of Groq, Gemini, Mistral, NVIDIA, OpenRouter and Ollama
+— pick a model in a menu, and you are coding.
 
 > Nexus Switch is **not affiliated with Anthropic**. It launches the `claude` CLI you install yourself.
 
@@ -103,7 +103,7 @@ are back in the menu, not in the shell.
 |---|---|---|---|
 | **Groq** | 8k tokens/min | Required | `nexus key set groq <key>` · reduced mode |
 | **Gemini** | Generous | Google account | `nexus key set gemini <key>` |
-| **Cerebras** | ~1M tokens/day | Required | `nexus key set cerebras <key>` |
+| **Cerebras** | **None** — card required, one-time $5 credit (30 days) | Required | `nexus key set cerebras <key>` |
 | **Mistral** | Experimental | Required | `nexus key set mistral <key>` |
 | **NVIDIA NIM** | 1,000 credits | Required | `nexus key set nvidia <key>` |
 | **OpenRouter** | 50 requests/day | Required | `nexus key set openrouter <key>` |
@@ -136,8 +136,8 @@ nexus uninstall                   # remove nexus and every key it stored
   `NEXUS_LANG=en` or `NEXUS_LANG=fr`.
 - **Updates** — nexus checks npm at most once a day and shows `↑ X.Y.Z available · nexus update`.
   It never updates itself. `NEXUS_NO_UPDATE_CHECK=1` turns the check off.
-- **Fallback** — automatic between Groq, Gemini, Cerebras, Mistral and NVIDIA (the providers
-  nexus translates for), in the order Cerebras → Gemini → NVIDIA → Mistral → Groq.
+- **Fallback** — automatic between Gemini, NVIDIA, Mistral and Groq (the free providers nexus
+  translates for), in that order.
   `NEXUS_NO_FALLBACK=1` turns it off for a session.
 - **Full prompt on Groq** — on a paid Groq tier, `NEXUS_FULL_PROMPT=1` turns reduced mode off.
 
