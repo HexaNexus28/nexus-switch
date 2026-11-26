@@ -4,6 +4,7 @@ const CLAUDE_INSTALL = 'npm i -g @anthropic-ai/claude-code';
 
 export const fr: Messages = {
   header: {
+    tagline: '  ·  Claude Code sur les offres gratuites',
     update: (version) => `  ↑ ${version} dispo · nexus update`,
   },
   providers: {
