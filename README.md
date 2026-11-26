@@ -1,6 +1,8 @@
 <div align="center">
 
-# ◢ NEXUS SWITCH
+<img src="docs/images/logo-animated.svg" width="120" alt="Nexus Switch logo">
+
+# NEXUS SWITCH
 
 **Claude Code on free tiers.**<br>
 Zero config. No surprise bills. Keys stay safe.
@@ -15,6 +17,8 @@ Zero config. No surprise bills. Keys stay safe.
 npm i -g @hexanexus/nexus-switch
 nexus
 ```
+
+<img src="docs/images/preview.gif" width="760" alt="The Nexus Switch terminal UI: pick a provider, then a model, with its cost and data policy shown before launch">
 
 </div>
 
@@ -50,6 +54,13 @@ to reduced mode on its own instead of letting every request fail.
 command output. Under each model, nexus shows what that provider does with it, from its own terms
 (for example: Gemini's free tier may use it to improve Google's products, Mistral's free plan
 trains on it unless you opt out). Local Ollama models never send it anywhere.
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/providers.png" width="420" alt="Provider list with each provider's billing regime: paid, free quota or free"><br><sub>Providers and billing regime</sub></td>
+    <td align="center"><img src="docs/images/models.png" width="420" alt="Gemini models, with the highlighted model's cost and what Google does with your code"><br><sub>Cost and data policy, before launch</sub></td>
+  </tr>
+</table>
 
 **Free quota ran out? Opt in to fallback.** Free tiers run dry fast under Claude Code. Turn on
 `nexus chain auto` and, when the provider you picked is rate limited or down, nexus serves the
@@ -89,7 +100,7 @@ providers — the links are in [docs/PROVIDERS.md](docs/PROVIDERS.md)). When `cl
 are back in the menu, not in the shell.
 
 ```text
- ◢ NEXUS SWITCH  ·  AI model router · HexaNexus
+ ◢ NEXUS SWITCH  ·  Claude Code on free tiers
 
  Groq  ·  3 models
  ────────────────────────────────────────────────────
@@ -100,7 +111,7 @@ are back in the menu, not in the shell.
  ▍ Free up to the quota (free groq account required) — beyond it: $0.15 in / $0.6 out per M tokens.
    production, reasoning + tools — free account required (console.groq.com)
    Data: Not retained by default; logs kept up to 30 days for abuse checks. Training not
- addressed on its data page.
+   addressed on its data page.
 
  ↑↓ navigate · ⏎ launch · ← providers · q quit
 ```

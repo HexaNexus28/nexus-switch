@@ -17,7 +17,7 @@ export function Header() {
 
   // Manual spacing: Ink's justify depends on the parent width, which is not
   // guaranteed here — measure the plain strings and pad deterministically.
-  const tagline = cols >= 72 ? '  ·  AI model router · HexaNexus' : '';
+  const tagline = cols >= 72 ? t.header.tagline : '';
   const left = `◢ NEXUS SWITCH${tagline}`;
   const update = availableUpdate();
   const notice = update ? t.header.update(update) : '';

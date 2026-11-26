@@ -104,12 +104,17 @@ export function ModelPicker({ provider, onSelect, onBack }: Props) {
         );
       })}
       <Box flexDirection="column" marginTop={1}>
-        <Text>
-          <Text color={current ? TIER_COLOR[current.tier] : 'gray'}>{'▍ '}</Text>
-          {current ? costSentence(current) : ''}
-        </Text>
-        {current?.note ? <Text dimColor>{`  ${current.note}`}</Text> : null}
-        {current ? <Text dimColor>{`  ${dataLine(provider, current)}`}</Text> : null}
+        {/* Fixed 2-column gutter: long sentences wrap under their own text, not at column 0. */}
+        <Box>
+          <Box width={2} flexShrink={0}>
+            <Text color={current ? TIER_COLOR[current.tier] : 'gray'}>▍</Text>
+          </Box>
+          <Box flexDirection="column" flexGrow={1}>
+            <Text>{current ? costSentence(current) : ''}</Text>
+            {current?.note ? <Text dimColor>{current.note}</Text> : null}
+            {current ? <Text dimColor>{dataLine(provider, current)}</Text> : null}
+          </Box>
+        </Box>
       </Box>
       <Box marginTop={1}>
         <Text dimColor>{t.picker.hint}</Text>

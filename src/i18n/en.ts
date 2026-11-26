@@ -6,6 +6,7 @@ const CLAUDE_INSTALL = 'npm i -g @anthropic-ai/claude-code';
 
 export const en = {
   header: {
+    tagline: '  ·  Claude Code on free tiers',
     update: (version: string) => `  ↑ ${version} available · nexus update`,
   },
   providers: {
