@@ -1,6 +1,6 @@
 {
   "type": "anthropic",
-  "name": "Anthropic (natif)",
+  "name": "Anthropic (native)",
   "default": "claude-sonnet-4-6",
   "setup": "Uses your Claude subscription or ANTHROPIC_API_KEY. Paid models. Source: platform.claude.com/docs/en/about-claude/models",
   "env": {
