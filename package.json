@@ -1,6 +1,6 @@
 {
   "name": "@hexanexus/nexus-switch",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "Cross-platform terminal launcher/router for Claude Code across OpenRouter, Groq, Gemini, Cerebras, Mistral, NVIDIA NIM and Ollama.",
   "type": "module",
   "repository": {
