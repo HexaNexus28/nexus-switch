@@ -44,16 +44,16 @@ launch anything. When claude exits, you land back in the picker — not in the
 shell.
 
 ```text
- ◢ NEXUS SWITCH
+ ◢ NEXUS SWITCH  ·  AI model router · HexaNexus
 
- Groq  ·  9 modeles
- ────────────────────────────────────────────────────────────────
- ▸ ● QUOTA   Llama 3.3 70B Versatile   cloud · 131K · $0.59/0.79
-   ● QUOTA   GPT-OSS 120B              cloud · 131K · $0.15/0.6
-   ● QUOTA   Qwen3 32B                 cloud · 131K · $0.29/0.59
+ Groq  ·  3 modeles
+ ────────────────────────────────────────────────────
+ ▸ ● QUOTA   GPT-OSS 120B  cloud · 131K · $0.15/0.6
+   ● QUOTA   GPT-OSS 20B   cloud · 131K · $0.075/0.3
+   ● QUOTA   Qwen3.8 27B   cloud · 131K
 
- ▍ Gratuit jusqu'au quota (compte groq gratuit requis)
-   — au-delà : $0.59 in / $0.79 out par M tokens.
+ ▍ Gratuit jusqu'au quota (compte groq gratuit requis) — au-dela : $0.15 in / $0.6 out par M tokens.
+   production, reasoning + tools — compte gratuit requis (console.groq.com)
 
  ↑↓ naviguer · ⏎ lancer · ← providers · q quitter
 ```
