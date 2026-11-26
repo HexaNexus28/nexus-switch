@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Nexus Switch">
+  <rect width="512" height="512" rx="112" fill="#0b0f14"/>
+  <polygon points="392,120 392,392 120,392" fill="#22d3ee" fill-opacity="0" stroke="#22d3ee" stroke-width="30" stroke-linejoin="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100">
+    <animate attributeName="stroke-dashoffset" values="100;0;0;100" keyTimes="0;0.25;0.85;1" dur="7s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.2 1;0 0 1 1;0.4 0 0.2 1"/>
+    <animate attributeName="fill-opacity" values="0;0;1;1;0" keyTimes="0;0.25;0.4;0.85;1" dur="7s" repeatCount="indefinite"/>
+  </polygon>
+  <circle r="0" fill="#0b0f14">
+    <animate attributeName="r" values="0;0;16;16;0" keyTimes="0;0.4;0.5;0.85;1" dur="7s" repeatCount="indefinite"/>
+    <animateMotion dur="7s" repeatCount="indefinite" path="M392 120 L120 392" keyPoints="0;0;1;1" keyTimes="0;0.5;0.8;1" calcMode="linear"/>
+  </circle>
+</svg>
