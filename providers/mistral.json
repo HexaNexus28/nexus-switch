@@ -2,6 +2,7 @@
   "type": "gateway",
   "name": "Mistral AI",
   "default": "mistral/devstral-2",
+  "fallback_order": 4,
   "setup": "nexus key set mistral <key> (console.mistral.ai). Account required, no card. Experimental free tier with restrictions. Source: mistral.ai/pricing",
   "api": {
     "base_url": "https://api.mistral.ai/v1",
@@ -17,7 +18,8 @@
       "context": null,
       "price_in": 0.4,
       "price_out": 2,
-      "note": "agentic coding — account required (console.mistral.ai)"
+      "note": "agentic coding — account required (console.mistral.ai)",
+      "class": "large"
     },
     {
       "id": "mistral/codestral",
@@ -28,7 +30,8 @@
       "context": null,
       "price_in": 0.3,
       "price_out": 0.9,
-      "note": "fast coding/completion — account required"
+      "note": "fast coding/completion — account required",
+      "class": "fast"
     },
     {
       "id": "mistral/mistral-large-3",
@@ -39,7 +42,8 @@
       "context": null,
       "price_in": 0.5,
       "price_out": 1.5,
-      "note": "frontier generalist — account required"
+      "note": "frontier generalist — account required",
+      "class": "large"
     },
     {
       "id": "mistral/mistral-medium-3.5",
@@ -50,7 +54,8 @@
       "context": null,
       "price_in": 1.5,
       "price_out": 7.5,
-      "note": "high-end generalist — account required"
+      "note": "high-end generalist — account required",
+      "class": "large"
     },
     {
       "id": "mistral/mistral-small-4",
@@ -61,7 +66,8 @@
       "context": null,
       "price_in": 0.1,
       "price_out": 0.3,
-      "note": "fast/cheap, versatile — account required"
+      "note": "fast/cheap, versatile — account required",
+      "class": "fast"
     },
     {
       "id": "mistral/ministral-3-14b",
@@ -72,7 +78,8 @@
       "context": null,
       "price_in": 0.2,
       "price_out": 0.2,
-      "note": "edge/small, tools — account required"
+      "note": "edge/small, tools — account required",
+      "class": "fast"
     },
     {
       "id": "mistral/ministral-3-8b",
@@ -83,7 +90,8 @@
       "context": null,
       "price_in": 0.15,
       "price_out": 0.15,
-      "note": "edge/small, tools — account required"
+      "note": "edge/small, tools — account required",
+      "class": "fast"
     },
     {
       "id": "mistral/ministral-3-3b",

@@ -121,6 +121,16 @@ export const fr: Messages = {
       'Relance avec `-- --bare` (prompt réduit), choisis un autre provider, ou passe au palier payant.',
     providerUnreachable: (url, reason) => `Provider injoignable (${url}) : ${reason}`,
   },
+  fallback: {
+    chain: (names) => `Repli si le quota s’épuise : ${names.join(' -> ')}`,
+    summary: (from, to, n) => `${from} indisponible ${n}× (quota ou panne) -> servi par ${to}.`,
+    manualSet: (names) => `Chaîne de repli enregistrée : ${names}`,
+    autoSet: 'Chaîne de repli : automatique (même classe de modèle, modèles gratuits et à quota uniquement).',
+    showManual: (names) => `Chaîne de repli (manuelle) : ${names}`,
+    showAuto: 'Chaîne de repli : automatique — fournisseurs avec clé, même classe de modèle, jamais un modèle payant.',
+    notGateway: (id) => `${id} ne peut pas servir de repli (seuls Groq, Gemini, Cerebras, Mistral, NVIDIA le peuvent).`,
+    usage: 'Usage : nexus chain | nexus chain set <provider> [provider...] | nexus chain auto',
+  },
   report: {
     header: 'Diagnostic (clés API et dossier utilisateur masqués) :',
     opening: 'Ouverture d’une issue GitHub pré-remplie dans ton navigateur.',

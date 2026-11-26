@@ -1,4 +1,5 @@
 import { refreshOllama, refreshOpenRouter } from './core/catalog.js';
+import { readConfig, writeConfig } from './core/config.js';
 import { gatewayKeyStatus, openRouterCredits } from './core/credits.js';
 import { runDoctor } from './core/doctor.js';
 import { deleteKey, KEY_VARS, keyVarFor, readKey, setKey } from './core/keys.js';
@@ -72,6 +73,38 @@ function cmdKey(args: string[]): void {
   process.exitCode = 1;
 }
 
+/** `nexus chain`: show, set or reset the manual fallback chain. */
+function cmdChain(args: string[]): void {
+  const [sub, ...ids] = args;
+  const config = readConfig();
+  if (sub === undefined) {
+    const chain = config.fallbackChain;
+    console.log(chain && chain.length > 0 ? t.fallback.showManual(chain.join(' -> ')) : t.fallback.showAuto);
+    return;
+  }
+  if (sub === 'auto') {
+    delete config.fallbackChain;
+    writeConfig(config);
+    console.log(t.fallback.autoSet);
+    return;
+  }
+  if (sub === 'set' && ids.length > 0) {
+    for (const id of ids) {
+      const known = listProviders().includes(id) && loadProvider(id).type === 'gateway';
+      if (!known) {
+        console.error(t.fallback.notGateway(id));
+        process.exitCode = 1;
+        return;
+      }
+    }
+    writeConfig({ ...config, fallbackChain: ids });
+    console.log(t.fallback.manualSet(ids.join(' -> ')));
+    return;
+  }
+  console.error(t.fallback.usage);
+  process.exitCode = 1;
+}
+
 async function cmdLaunch(name: string, rest: string[]): Promise<void> {
   if (!listProviders().includes(name)) {
     console.error(t.cli.unknownProvider(name, listProviders().join(', ')));
@@ -138,6 +171,7 @@ function cmdHelp(): void {
       '  nexus <provider> [model] [-- claude flags]',
       '  nexus doctor',
       '  nexus credits',
+      '  nexus chain [set <provider>... | auto]   fallback when a free quota runs out',
       '  nexus report                report a problem (pre-filled GitHub issue)',
       '  nexus refresh',
       '  nexus key set <provider> <key>',
@@ -182,6 +216,9 @@ async function main(): Promise<void> {
       break;
     case 'key':
       cmdKey(rest);
+      break;
+    case 'chain':
+      cmdChain(rest);
       break;
     case 'credits':
       await cmdCredits();

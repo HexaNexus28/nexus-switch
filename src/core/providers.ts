@@ -1,10 +1,11 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Provider, ProviderType } from '../types/provider.types.js';
+import type { ModelClass, Provider, ProviderType } from '../types/provider.types.js';
 import { t } from '../i18n/index.js';
 
 const VALID_TYPES: readonly ProviderType[] = ['openrouter', 'gateway', 'ollama', 'anthropic'];
+const VALID_CLASSES: readonly ModelClass[] = ['large', 'fast'];
 
 // Resolves to dist/core at runtime; providers/ sits two levels up at the package root.
 const moduleDir = dirname(fileURLToPath(import.meta.url));
@@ -34,6 +35,16 @@ function validate(name: string, data: unknown): Provider {
     }
   }
   if (p.bare !== undefined && typeof p.bare !== 'boolean') throw new Error(`${name}: bare must be a boolean`);
+  for (const field of ['max_request_tokens', 'fallback_order'] as const) {
+    if (p[field] !== undefined && (typeof p[field] !== 'number' || !Number.isFinite(p[field]))) {
+      throw new Error(`${name}: ${field} must be a number`);
+    }
+  }
+  for (const m of p.models as Array<{ id?: unknown; class?: unknown }>) {
+    if (m.class !== undefined && !VALID_CLASSES.includes(m.class as ModelClass)) {
+      throw new Error(`${name}: model ${String(m.id)} has invalid class "${String(m.class)}"`);
+    }
+  }
   return data as Provider;
 }
 

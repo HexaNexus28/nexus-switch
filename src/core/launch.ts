@@ -3,8 +3,12 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { Provider } from '../types/provider.types.js';
 import { startGateway, type RunningGateway } from '../gateway/server.js';
+import type { FallbackEvent } from '../types/gateway.types.js';
+import { buildRoutes } from './chain.js';
+import { readConfig } from './config.js';
 import { applyContextWindow, applyModelAliases, applyProviderEnv, resetProviderEnv } from './env.js';
 import { keyVarFor, readKey } from './keys.js';
+import { loadAllProviders } from './providers.js';
 import { t } from '../i18n/index.js';
 
 /** A resolved way to start claude that works on POSIX and through npm's .cmd shims. */
@@ -132,19 +136,27 @@ function applyGatewayEnv(gateway: RunningGateway, model: string): void {
  * on any failure (printed as a clean error) — the caller bails out so launch()
  * is never called with a half-wired env.
  */
-async function startGatewayForProvider(provider: Provider): Promise<RunningGateway | null> {
+function keyFor(providerId: string): string | undefined {
+  const varName = keyVarFor(providerId);
+  return varName ? readKey(varName) : undefined;
+}
+
+async function startGatewayForProvider(provider: Provider, model: string): Promise<RunningGateway | null> {
   if (!provider.api) {
     console.error(`Provider ${provider.id}: type 'gateway' requires api.base_url + api.model_prefix.`);
     return null;
   }
-  const varName = provider.id ? keyVarFor(provider.id) : undefined;
-  const apiKey = varName ? readKey(varName) : undefined;
-  if (!apiKey) {
+  if (!provider.id || !keyFor(provider.id)) {
     console.error(t.launch.keyMissing(provider.id ?? '?'));
     return null;
   }
+  const routes =
+    process.env.NEXUS_NO_FALLBACK === '1'
+      ? buildRoutes(provider, model, [], keyFor)
+      : buildRoutes(provider, model, loadAllProviders(), keyFor, readConfig().fallbackChain);
+  if (routes.length > 1) console.error(t.fallback.chain(routes.map((r) => r.providerName)));
   try {
-    return await startGateway({ api: provider.api, apiKey });
+    return await startGateway({ routes });
   } catch (err) {
     console.error(t.launch.gatewayFailed(provider.api.base_url, err instanceof Error ? err.message : String(err)));
     return null;
@@ -220,6 +232,18 @@ function runClaude(rest: string[]): Promise<void> {
   });
 }
 
+/** One line per switch pair after the session: "Groq quota reached 3x -> served by Cerebras". */
+function printFallbackSummary(events: readonly FallbackEvent[]): void {
+  const counts = new Map<string, { from: string; to: string; n: number }>();
+  for (const e of events) {
+    const key = `${e.from}\u0000${e.to}`;
+    const entry = counts.get(key) ?? { from: e.from, to: e.to, n: 0 };
+    entry.n += 1;
+    counts.set(key, entry);
+  }
+  for (const { from, to, n } of counts.values()) console.error(t.fallback.summary(from, to, n));
+}
+
 /**
  * Args actually handed to claude: --bare prepended when the provider's quota
  * cannot carry the full prompt, unless the user opted out or passed it already.
@@ -255,7 +279,7 @@ export async function launch(provider: Provider, model: string, rest: string[]):
     return;
   }
   if (provider.type === 'gateway') {
-    const gateway = await startGatewayForProvider(provider);
+    const gateway = await startGatewayForProvider(provider, model);
     if (!gateway) {
       process.exitCode = 1;
       return;
@@ -267,6 +291,7 @@ export async function launch(provider: Provider, model: string, rest: string[]):
     // session, and closing it is what lets this process end. Close regardless of
     // claude's exit code — the process is going away either way.
     await gateway.close();
+    printFallbackSummary(gateway.fallbacks());
     return;
   }
   applyProviderEnv(provider, model);

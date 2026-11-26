@@ -20,6 +20,15 @@ export type ModelLocation = 'local' | 'cloud';
  */
 export type ModelTier = 'free' | 'quota' | 'paid' | 'subscription';
 
+/**
+ * Capability class for automatic fallback: when the active provider hits its
+ * quota, nexus may switch to another provider's model of the SAME class.
+ *   large — holds an agentic coding session (tools, long context)
+ *   fast  — small/fast model, fine for short or background requests
+ * A model without a class is never picked as a fallback.
+ */
+export type ModelClass = 'large' | 'fast';
+
 /** A single model entry in a provider catalog. */
 export interface ProviderModel {
   id: string;
@@ -46,6 +55,8 @@ export interface ProviderModel {
   signin_required?: string;
   /** Free-form descriptive note (capabilities, tier caveats). */
   note?: string;
+  /** Fallback equivalence class — see ModelClass. */
+  class?: ModelClass;
 }
 
 /** ANTHROPIC_* environment template applied to the process before launching claude. */
@@ -73,6 +84,13 @@ export interface Provider {
    * CLAUDE.md, hooks, MCP and plugins. NEXUS_FULL_PROMPT=1 opts out (paid tier).
    */
   bare?: boolean;
+  /**
+   * Largest request (estimated tokens) the free tier accepts at once — Groq:
+   * 8000 tokens/min. The fallback router skips this provider for bigger requests.
+   */
+  max_request_tokens?: number;
+  /** Rank in the automatic fallback chain (lower first); absent = never a fallback target. */
+  fallback_order?: number;
   /** OpenRouter credits endpoint, when available. */
   credits_api?: string;
   /** Human-readable setup hint (account, key page, local install). */

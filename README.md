@@ -46,6 +46,11 @@ Models are sorted cheapest first, and the catalog is checked against each provid
 When a free quota cannot carry Claude Code's full prompt (Groq: 8,000 tokens/min), nexus switches
 to reduced mode on its own instead of letting every request fail.
 
+**Free quota ran out? It keeps going.** Free tiers run dry fast under Claude Code. When the
+provider you picked answers "rate limited" or is down, nexus serves the request from another
+provider you have a key for — same class of model, **never a paid one** — and goes back to your
+pick once its quota resets. You get one line at the end of the session saying what happened.
+
 **Keys stay safe.** API keys live in `~/.nexus-switch`, encrypted with Windows DPAPI, or in an
 owner-only file (`0600`) on macOS and Linux. They are never written to your global environment.
 For Groq, Gemini, Mistral, Cerebras and NVIDIA the key never leaves the nexus process: `claude`
@@ -118,6 +123,9 @@ nexus key list                    # which keys are configured
 nexus key delete <provider>       # remove a key
 nexus doctor                      # check claude and keys
 nexus credits                     # remaining credits/quota per provider
+nexus chain                       # show the fallback chain (automatic by default)
+nexus chain set cerebras gemini   # choose your own fallback order
+nexus chain auto                  # back to the automatic chain
 nexus refresh                     # refresh the OpenRouter + Ollama model lists
 nexus report                      # report a problem (pre-filled GitHub issue)
 nexus update                      # update nexus-switch
@@ -128,6 +136,9 @@ nexus uninstall                   # remove nexus and every key it stored
   `NEXUS_LANG=en` or `NEXUS_LANG=fr`.
 - **Updates** — nexus checks npm at most once a day and shows `↑ X.Y.Z available · nexus update`.
   It never updates itself. `NEXUS_NO_UPDATE_CHECK=1` turns the check off.
+- **Fallback** — automatic between Groq, Gemini, Cerebras, Mistral and NVIDIA (the providers
+  nexus translates for), in the order Cerebras → Gemini → NVIDIA → Mistral → Groq.
+  `NEXUS_NO_FALLBACK=1` turns it off for a session.
 - **Full prompt on Groq** — on a paid Groq tier, `NEXUS_FULL_PROMPT=1` turns reduced mode off.
 
 ## Reporting a problem

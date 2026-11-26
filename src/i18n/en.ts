@@ -125,6 +125,17 @@ export const en = {
       'Relaunch with `-- --bare` (reduced prompt), pick another provider, or move to the paid tier.',
     providerUnreachable: (url: string, reason: string) => `Provider unreachable (${url}): ${reason}`,
   },
+  fallback: {
+    chain: (names: string[]) => `Fallback if quota runs out: ${names.join(' -> ')}`,
+    summary: (from: string, to: string, n: number) =>
+      `${from} unavailable ${n}x (quota or outage) -> served by ${to}.`,
+    manualSet: (names: string) => `Fallback chain saved: ${names}`,
+    autoSet: 'Fallback chain: automatic (same model class, free and quota models only).',
+    showManual: (names: string) => `Fallback chain (manual): ${names}`,
+    showAuto: 'Fallback chain: automatic — providers with a key, same model class, never a paid model.',
+    notGateway: (id: string) => `${id} cannot be a fallback (only Groq, Gemini, Cerebras, Mistral, NVIDIA can).`,
+    usage: 'Usage: nexus chain | nexus chain set <provider> [provider...] | nexus chain auto',
+  },
   report: {
     header: 'Diagnostic (API keys and your user folder are masked):',
     opening: 'Opening a pre-filled GitHub issue in your browser.',

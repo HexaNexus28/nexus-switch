@@ -181,6 +181,31 @@ export interface OpenAIStreamChunk {
 
 // --- Gateway ------------------------------------------------------------------
 
+/** One upstream the gateway can serve a request from: the primary or a fallback. */
+export interface GatewayRoute {
+  /** Catalog key, e.g. "groq". */
+  providerId: string;
+  /** Display name, e.g. "Groq". */
+  providerName: string;
+  api: GatewayApi;
+  /** Provider API key, injected into the upstream Authorization header only. */
+  apiKey: string;
+  /** Catalog model id this route serves (prefixed, e.g. "cerebras/gpt-oss-120b"). */
+  model: string;
+  /** Requests estimated above this many tokens skip this route (free-tier TPM). */
+  maxRequestTokens?: number;
+  /** Model context window; requests estimated above it skip this route. */
+  context?: number;
+}
+
+/** A request served by a fallback route instead of the one before it. */
+export interface FallbackEvent {
+  from: string;
+  to: string;
+  /** Upstream HTTP status that triggered the switch, or 0 for a network error. */
+  status: number;
+}
+
 /** Per-provider upstream description, from providers/<name>.json `api`. */
 export interface GatewayApi {
   /** OpenAI-compatible base, e.g. https://api.groq.com/openai/v1 */

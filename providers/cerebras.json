@@ -2,6 +2,7 @@
   "type": "gateway",
   "name": "Cerebras",
   "default": "cerebras/gpt-oss-120b",
+  "fallback_order": 1,
   "setup": "nexus key set cerebras <key> (cloud.cerebras.ai). Account required, no card. Free tier ~1M tokens/day. Source: inference-docs.cerebras.ai/models",
   "api": {
     "base_url": "https://api.cerebras.ai/v1",
@@ -17,7 +18,8 @@
       "context": null,
       "price_in": null,
       "price_out": null,
-      "note": "production, reasoning ~3000 tok/s — free account required (cloud.cerebras.ai)"
+      "note": "production, reasoning ~3000 tok/s — free account required (cloud.cerebras.ai)",
+      "class": "large"
     },
     {
       "id": "cerebras/zai-glm-4.7",
@@ -28,7 +30,8 @@
       "context": null,
       "price_in": null,
       "price_out": null,
-      "note": "preview, 355B ~1000 tok/s, coding/agentic — free account required"
+      "note": "preview, 355B ~1000 tok/s, coding/agentic — free account required",
+      "class": "large"
     },
     {
       "id": "cerebras/qwen-3-32b",
@@ -39,7 +42,8 @@
       "context": null,
       "price_in": null,
       "price_out": null,
-      "note": "coding/reasoning — free account required (best-effort id)"
+      "note": "coding/reasoning — free account required (best-effort id)",
+      "class": "fast"
     },
     {
       "id": "cerebras/llama-3.3-70b",
@@ -50,7 +54,8 @@
       "context": null,
       "price_in": null,
       "price_out": null,
-      "note": "versatile, very fast — free account required (best-effort id)"
+      "note": "versatile, very fast — free account required (best-effort id)",
+      "class": "fast"
     }
   ]
 }
