@@ -18,7 +18,7 @@ export const en = {
     bestPaid: 'paid',
     bestSubscription: 'subscription',
     reduced: ' · reduced mode',
-    hint: '↑↓ navigate · ⏎ select · q quit',
+    hint: '↑↓ navigate · ⏎ select · r report a problem · q quit',
   },
   picker: {
     badge: { free: 'FREE', quota: 'QUOTA', paid: 'PAID', subscription: 'UPGRADE' },
@@ -124,6 +124,12 @@ export const en = {
       'nexus: request larger than the provider tokens-per-minute quota. ' +
       'Relaunch with `-- --bare` (reduced prompt), pick another provider, or move to the paid tier.',
     providerUnreachable: (url: string, reason: string) => `Provider unreachable (${url}): ${reason}`,
+  },
+  report: {
+    header: 'Diagnostic (API keys and your user folder are masked):',
+    opening: 'Opening a pre-filled GitHub issue in your browser.',
+    nothingSent: 'Nothing is sent until you read it and click "Submit new issue". Describe what you did above it.',
+    link: (url: string) => `If the browser did not open:\n${url}`,
   },
   secrets: {
     refuseWipe: (dir: string) => `Refusing to delete ${dir}: directory too broad.`,

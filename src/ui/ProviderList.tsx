@@ -6,6 +6,7 @@ import { t } from '../i18n/index.js';
 interface Props {
   providers: Provider[];
   onSelect: (provider: Provider) => void;
+  onReport: () => void;
   onQuit: () => void;
 }
 
@@ -22,7 +23,7 @@ function summary(p: Provider): string {
   return `${t.providers.models(p.models.length)} · ${best}${p.bare ? t.providers.reduced : ''}`;
 }
 
-export function ProviderList({ providers, onSelect, onQuit }: Props) {
+export function ProviderList({ providers, onSelect, onReport, onQuit }: Props) {
   const [cursor, setCursor] = useState(0);
   const nameWidth = providers.length > 0 ? Math.max(...providers.map((p) => p.name.length)) : 0;
 
@@ -34,6 +35,7 @@ export function ProviderList({ providers, onSelect, onQuit }: Props) {
     if (key.upArrow) setCursor((c) => Math.max(0, c - 1));
     if (key.downArrow) setCursor((c) => Math.min(providers.length - 1, c + 1));
     if (key.return) onSelect(providers[cursor]!);
+    if (input === 'r') onReport();
     if (input === 'q' || key.escape) onQuit();
   });
 

@@ -16,7 +16,7 @@ export const fr: Messages = {
     bestPaid: 'payant',
     bestSubscription: 'abonnement',
     reduced: ' · mode réduit',
-    hint: '↑↓ naviguer · ⏎ choisir · q quitter',
+    hint: '↑↓ naviguer · ⏎ choisir · r signaler un problème · q quitter',
   },
   picker: {
     badge: { free: 'GRATUIT', quota: 'QUOTA', paid: 'PAYANT', subscription: 'UPGRADE' },
@@ -120,6 +120,12 @@ export const fr: Messages = {
       'nexus : requête plus grosse que le quota tokens/minute du provider. ' +
       'Relance avec `-- --bare` (prompt réduit), choisis un autre provider, ou passe au palier payant.',
     providerUnreachable: (url, reason) => `Provider injoignable (${url}) : ${reason}`,
+  },
+  report: {
+    header: 'Diagnostic (clés API et dossier utilisateur masqués) :',
+    opening: 'Ouverture d’une issue GitHub pré-remplie dans ton navigateur.',
+    nothingSent: 'Rien n’est envoyé tant que tu ne cliques pas sur « Submit new issue ». Décris ce que tu faisais au-dessus.',
+    link: (url) => `Si le navigateur ne s’est pas ouvert :\n${url}`,
   },
   secrets: {
     refuseWipe: (dir) => `Refus de supprimer ${dir} : répertoire trop large.`,

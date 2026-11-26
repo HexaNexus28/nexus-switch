@@ -4,6 +4,7 @@ import { runDoctor } from './core/doctor.js';
 import { deleteKey, KEY_VARS, keyVarFor, readKey, setKey } from './core/keys.js';
 import { launch, runNpm } from './core/launch.js';
 import { listProviders, loadProvider } from './core/providers.js';
+import { runReport } from './core/report.js';
 import { migrateLegacyEnv, purgeLegacyEnv, purgeLegacyLitellm, wipeSecretStore } from './core/secrets.js';
 import { availableUpdate, refreshUpdateCache } from './core/update.js';
 import { ensureClaude, ensureOllamaModel, ensureProviderKey } from './prompt.js';
@@ -137,6 +138,7 @@ function cmdHelp(): void {
       '  nexus <provider> [model] [-- claude flags]',
       '  nexus doctor',
       '  nexus credits',
+      '  nexus report                report a problem (pre-filled GitHub issue)',
       '  nexus refresh',
       '  nexus key set <provider> <key>',
       '  nexus key list',
@@ -183,6 +185,9 @@ async function main(): Promise<void> {
       break;
     case 'credits':
       await cmdCredits();
+      break;
+    case 'report':
+      runReport();
       break;
     case 'update':
       cmdUpdate();

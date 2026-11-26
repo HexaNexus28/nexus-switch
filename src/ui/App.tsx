@@ -26,7 +26,8 @@ export interface Choice {
 export type Intent =
   | { kind: 'launch'; choice: Choice }
   | { kind: 'install'; tool: 'claude'; choice: Choice }
-  | { kind: 'pull'; choice: Choice };
+  | { kind: 'pull'; choice: Choice }
+  | { kind: 'report' };
 
 interface Props {
   providers: Provider[];
@@ -42,7 +43,7 @@ type Stage =
   | { kind: 'providers' }
   | { kind: 'models'; provider: Provider }
   | { kind: 'key'; choice: Choice; varName: string }
-  | { kind: 'confirm'; title: string; message: string; command?: string; intent: Intent };
+  | { kind: 'confirm'; title: string; message: string; command?: string; intent: Exclude<Intent, { kind: 'report' }> };
 
 export function App({ providers, initialProvider, initialChoice, onIntent, onQuit }: Props) {
   const [stage, setStage] = useState<Stage>(
@@ -96,6 +97,7 @@ export function App({ providers, initialProvider, initialChoice, onIntent, onQui
         <ProviderList
           providers={providers}
           onSelect={(p) => setStage({ kind: 'models', provider: p })}
+          onReport={() => onIntent({ kind: 'report' })}
           onQuit={onQuit}
         />
       ) : stage.kind === 'models' ? (

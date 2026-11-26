@@ -3,6 +3,7 @@ import { render } from 'ink';
 import type { Provider } from '../types/provider.types.js';
 import { loadAllProviders } from '../core/providers.js';
 import { launch, releaseStdin, runNpm } from '../core/launch.js';
+import { runReport } from '../core/report.js';
 import { App, type Choice, type Intent } from './App.js';
 import { t } from '../i18n/index.js';
 
@@ -58,6 +59,10 @@ export async function runTui(): Promise<void> {
   for (;;) {
     const intent = await session(providers, state);
     if (!intent) return;
+    if (intent.kind === 'report') {
+      runReport();
+      continue;
+    }
     const { choice } = intent;
     state.provider = choice.provider;
     state.retryChoice = null;
