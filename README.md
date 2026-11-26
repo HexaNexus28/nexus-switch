@@ -46,10 +46,16 @@ Models are sorted cheapest first, and the catalog is checked against each provid
 When a free quota cannot carry Claude Code's full prompt (Groq: 8,000 tokens/min), nexus switches
 to reduced mode on its own instead of letting every request fail.
 
-**Free quota ran out? It keeps going.** Free tiers run dry fast under Claude Code. When the
-provider you picked answers "rate limited" or is down, nexus serves the request from another
-provider you have a key for — same class of model, **never a paid one** — and goes back to your
-pick once its quota resets. You get one line at the end of the session saying what happened.
+**You know where your code goes.** Claude Code sends the model what it reads: your files, your
+command output. Under each model, nexus shows what that provider does with it, from its own terms
+(for example: Gemini's free tier may use it to improve Google's products, Mistral's free plan
+trains on it unless you opt out). Local Ollama models never send it anywhere.
+
+**Free quota ran out? Opt in to fallback.** Free tiers run dry fast under Claude Code. Turn on
+`nexus chain auto` and, when the provider you picked is rate limited or down, nexus serves the
+request from another provider you have a key for — same class of model, **never a paid one** —
+then goes back to your pick. It is **off by default**: turning it on first lists every provider
+your code could reach and what each does with it, and asks you to confirm.
 
 **Keys stay safe.** API keys live in `~/.nexus-switch`, encrypted with Windows DPAPI, or in an
 owner-only file (`0600`) on macOS and Linux. They are never written to your global environment.
@@ -93,25 +99,29 @@ are back in the menu, not in the shell.
 
  ▍ Free up to the quota (free groq account required) — beyond it: $0.15 in / $0.6 out per M tokens.
    production, reasoning + tools — free account required (console.groq.com)
+   Data: Not retained by default; logs kept up to 30 days for abuse checks. Training not
+ addressed on its data page.
 
  ↑↓ navigate · ⏎ launch · ← providers · q quit
 ```
 
 ## Providers
 
-| Provider | Free tier | Account | Setup |
+| Provider | Free tier | What it does with your code (official terms, checked 2026-11-26) | Setup |
 |---|---|---|---|
-| **Groq** | 8k tokens/min | Required | `nexus key set groq <key>` · reduced mode |
-| **Gemini** | Generous | Google account | `nexus key set gemini <key>` |
-| **Cerebras** | **None** — card required, one-time $5 credit (30 days) | Required | `nexus key set cerebras <key>` |
-| **Mistral** | Experimental | Required | `nexus key set mistral <key>` |
-| **NVIDIA NIM** | 1,000 credits | Required | `nexus key set nvidia <key>` |
-| **OpenRouter** | 50 requests/day | Required | `nexus key set openrouter <key>` |
-| **Ollama local** | Unlimited | None | `ollama pull <model>` |
-| **Ollama cloud** | Quota (some models Pro-only) | Required | `ollama signin` |
-| **Anthropic** | — (paid) | Required | Claude subscription or `ANTHROPIC_API_KEY` |
+| **Groq** | 8k tokens/min | Not retained by default; abuse logs up to 30 days. Training not addressed. [Terms](https://console.groq.com/docs/your-data) | `nexus key set groq <key>` · reduced mode |
+| **Gemini** | Yes | May be used to improve Google products, human reviewers may read it — except in the EEA, UK and Switzerland. [Terms](https://aistudio.google.com/docs/terms) | `nexus key set gemini <key>` |
+| **Mistral** | Free plan | Trains Mistral models by default; opt out in admin.mistral.ai > Privacy. [Terms](https://help.mistral.ai/en/articles/455207-can-i-opt-out-of-my-input-or-output-data-being-used-for-training) | `nexus key set mistral <key>` |
+| **NVIDIA NIM** | Trial, rate-limited, **not for production** | May be used, de-identified, to improve NVIDIA models. [Terms](https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf) | `nexus key set nvidia <key>` |
+| **OpenRouter** | `:free` models, 50 requests/day | Depends on the host; refuse hosts that train in your [privacy settings](https://openrouter.ai/docs/guides/privacy/provider-logging). | `nexus key set openrouter <key>` |
+| **Ollama local** | Unlimited | Runs on your machine — nothing leaves it. | `ollama pull <model>` |
+| **Ollama cloud** | Quota (some models Pro-only) | Not checked by nexus yet. | `ollama signin` |
+| **Cerebras** | **None** — card required, one-time $5 credit (30 days) | Inputs and outputs not retained. [Terms](https://www.cerebras.ai/privacy-policy) | `nexus key set cerebras <key>` |
+| **Anthropic** | — (paid) | Your Anthropic plan's terms. | Claude subscription or `ANTHROPIC_API_KEY` |
 
-Free tiers change often; `nexus credits` shows what is left where the provider exposes it.
+Free tiers and terms change often: nexus dates every entry, and `nexus credits` shows what is
+left where the provider exposes it. Do not send secrets or personal data to a provider whose
+terms you have not read.
 
 ## Commands
 
@@ -123,9 +133,10 @@ nexus key list                    # which keys are configured
 nexus key delete <provider>       # remove a key
 nexus doctor                      # check claude and keys
 nexus credits                     # remaining credits/quota per provider
-nexus chain                       # show the fallback chain (automatic by default)
-nexus chain set cerebras gemini   # choose your own fallback order
-nexus chain auto                  # back to the automatic chain
+nexus chain                       # is fallback on? (off by default)
+nexus chain auto                  # turn fallback on, automatic order (asks you to confirm)
+nexus chain set groq gemini       # turn fallback on, your own order (asks you to confirm)
+nexus chain off                   # turn fallback off
 nexus refresh                     # refresh the OpenRouter + Ollama model lists
 nexus report                      # report a problem (pre-filled GitHub issue)
 nexus update                      # update nexus-switch
@@ -136,9 +147,9 @@ nexus uninstall                   # remove nexus and every key it stored
   `NEXUS_LANG=en` or `NEXUS_LANG=fr`.
 - **Updates** — nexus checks npm at most once a day and shows `↑ X.Y.Z available · nexus update`.
   It never updates itself. `NEXUS_NO_UPDATE_CHECK=1` turns the check off.
-- **Fallback** — automatic between Gemini, NVIDIA, Mistral and Groq (the free providers nexus
-  translates for), in that order.
-  `NEXUS_NO_FALLBACK=1` turns it off for a session.
+- **Fallback** — off by default. Once on, it works between Gemini, NVIDIA, Mistral and Groq
+  (the free providers nexus translates for), in that order. `NEXUS_NO_FALLBACK=1` turns it off
+  for one session; `--yes` confirms `nexus chain` outside an interactive terminal.
 - **Full prompt on Groq** — on a paid Groq tier, `NEXUS_FULL_PROMPT=1` turns reduced mode off.
 
 ## Reporting a problem

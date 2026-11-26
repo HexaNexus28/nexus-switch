@@ -58,6 +58,12 @@ function costSentence(m: ProviderModel): string {
   }
 }
 
+/** Where the code goes: local models never leave the machine; cloud ones follow the provider's terms. */
+function dataLine(provider: Provider, m: ProviderModel): string {
+  if (m.location === 'local') return t.picker.dataLocal;
+  return provider.data_policy ? t.picker.data(provider.data_policy.summary) : t.picker.dataUnknown;
+}
+
 export function ModelPicker({ provider, onSelect, onBack }: Props) {
   const [cursor, setCursor] = useState(0);
   const models = [...provider.models].sort((a, b) => TIER_ORDER[a.tier] - TIER_ORDER[b.tier]);
@@ -103,6 +109,7 @@ export function ModelPicker({ provider, onSelect, onBack }: Props) {
           {current ? costSentence(current) : ''}
         </Text>
         {current?.note ? <Text dimColor>{`  ${current.note}`}</Text> : null}
+        {current ? <Text dimColor>{`  ${dataLine(provider, current)}`}</Text> : null}
       </Box>
       <Box marginTop={1}>
         <Text dimColor>{t.picker.hint}</Text>

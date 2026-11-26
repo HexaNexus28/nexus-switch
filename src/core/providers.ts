@@ -40,6 +40,12 @@ function validate(name: string, data: unknown): Provider {
       throw new Error(`${name}: ${field} must be a number`);
     }
   }
+  if (p.data_policy !== undefined) {
+    const d = p.data_policy as { summary?: unknown; source?: unknown; checked?: unknown };
+    if (typeof d.summary !== 'string' || typeof d.source !== 'string' || typeof d.checked !== 'string') {
+      throw new Error(`${name}: data_policy needs summary, source and checked`);
+    }
+  }
   for (const m of p.models as Array<{ id?: unknown; class?: unknown }>) {
     if (m.class !== undefined && !VALID_CLASSES.includes(m.class as ModelClass)) {
       throw new Error(`${name}: model ${String(m.id)} has invalid class "${String(m.class)}"`);

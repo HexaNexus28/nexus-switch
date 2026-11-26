@@ -157,10 +157,10 @@ async function startGatewayForProvider(provider: Provider, model: string): Promi
     console.error(t.launch.keyMissing(provider.id ?? '?'));
     return null;
   }
-  const routes =
-    process.env.NEXUS_NO_FALLBACK === '1'
-      ? buildRoutes(provider, model, [], keyFor)
-      : buildRoutes(provider, model, loadAllProviders(), keyFor, readConfig().fallbackChain);
+  const setting = process.env.NEXUS_NO_FALLBACK === '1' ? undefined : readConfig().fallback;
+  const routes = !setting
+    ? buildRoutes(provider, model, [], keyFor)
+    : buildRoutes(provider, model, loadAllProviders(), keyFor, setting.mode === 'manual' ? setting.providers : undefined);
   if (routes.length > 1) console.error(t.fallback.chain(routes.map((r) => r.providerName)));
   try {
     return await startGateway({ routes });
@@ -299,6 +299,9 @@ export async function launch(provider: Provider, model: string, rest: string[]):
     // claude's exit code — the process is going away either way.
     await gateway.close();
     printFallbackSummary(gateway.fallbacks());
+    if (gateway.quotaHits() > 0 && !readConfig().fallback) {
+      console.error(t.fallback.suggest(provider.name, gateway.quotaHits()));
+    }
     return;
   }
   applyProviderEnv(provider, model);

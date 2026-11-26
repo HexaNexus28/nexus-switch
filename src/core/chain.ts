@@ -12,6 +12,11 @@ import type { ModelTier, Provider } from '../types/provider.types.js';
 
 const FALLBACK_TIERS: ReadonlySet<ModelTier> = new Set(['free', 'quota']);
 
+/** Can this provider ever serve a fallback? (some free/quota model with a class) */
+export function canFallBack(provider: Provider): boolean {
+  return provider.models.some((m) => m.class !== undefined && FALLBACK_TIERS.has(m.tier));
+}
+
 /** The route for one provider + model, or null when it cannot be served by the gateway. */
 export function routeFor(provider: Provider, model: string, apiKey: string | undefined): GatewayRoute | null {
   if (provider.type !== 'gateway' || !provider.api || !provider.id || !apiKey) return null;
@@ -27,8 +32,8 @@ export function routeFor(provider: Provider, model: string, apiKey: string | und
   };
 }
 
-/** Providers eligible as fallbacks, in try order. */
-function fallbackPool(all: readonly Provider[], manualChain: readonly string[] | undefined): Provider[] {
+/** Providers eligible as fallbacks, in try order (manual list, else fallback_order). */
+export function fallbackPool(all: readonly Provider[], manualChain: readonly string[] | undefined): Provider[] {
   if (manualChain && manualChain.length > 0) {
     return manualChain
       .map((id) => all.find((p) => p.id === id))

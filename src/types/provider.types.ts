@@ -66,6 +66,16 @@ export interface ProviderEnv {
   ANTHROPIC_API_KEY: string;
 }
 
+/** What the provider does with what you send it, from its own terms. */
+export interface DataPolicy {
+  /** One or two plain sentences, shown in the picker and before enabling fallback. */
+  summary: string;
+  /** Official page the summary comes from. */
+  source: string;
+  /** Date the source was last read, YYYY-MM-DD. */
+  checked: string;
+}
+
 /** A provider catalog file. */
 export interface Provider {
   /** Catalog key = the JSON file name (e.g. "groq"); set by loadProvider. */
@@ -95,4 +105,6 @@ export interface Provider {
   credits_api?: string;
   /** Human-readable setup hint (account, key page, local install). */
   setup?: string;
+  /** Absent = not checked yet; the UI says so instead of guessing. */
+  data_policy?: DataPolicy;
 }

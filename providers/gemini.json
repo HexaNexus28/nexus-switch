@@ -4,6 +4,11 @@
   "default": "gemini/gemini-2.5-flash",
   "fallback_order": 2,
   "setup": "nexus key set gemini <key> (aistudio.google.com). Google account required, no card. Free tier on 2.5/3-flash; prices below beyond it. Source: ai.google.dev/gemini-api/docs/models + /pricing",
+  "data_policy": {
+    "summary": "Free tier: Google may use your prompts and code to improve its products, and human reviewers may read them. Not in the EEA, UK or Switzerland, where paid-tier terms apply.",
+    "source": "https://aistudio.google.com/docs/terms",
+    "checked": "2026-11-26"
+  },
   "api": {
     "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
     "model_prefix": "gemini/"

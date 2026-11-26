@@ -32,6 +32,8 @@ export interface GatewayOptions {
 interface SessionState {
   cooldownUntil: Map<string, number>;
   fallbacks: FallbackEvent[];
+  /** 429/413 answers from the picked provider — the hint to offer fallback. */
+  quotaHits: number;
 }
 
 export interface RunningGateway {
@@ -43,6 +45,8 @@ export interface RunningGateway {
   token: string;
   /** Requests served by a fallback during this session (for the post-session summary). */
   fallbacks(): readonly FallbackEvent[];
+  /** How many times the picked provider answered "quota exceeded" (429/413). */
+  quotaHits(): number;
   close(): Promise<void>;
 }
 
@@ -175,6 +179,7 @@ async function handleMessages(
       const text = await upstream.text();
       debugLog(`${route.providerId} upstream ${upstream.status}: ${text.slice(0, 500)}`);
       failure = { status: upstream.status, message: upstreamErrorMessage(text) };
+      if (route === primary && (upstream.status === 429 || upstream.status === 413)) session.quotaHits += 1;
       if (!shouldFallback(upstream.status)) break; // a bad request fails everywhere
       const pause = cooldownMs(upstream.status, upstream.headers.get('retry-after'), Date.now());
       if (pause > 0) session.cooldownUntil.set(routeKey(route), Date.now() + pause);
@@ -240,7 +245,7 @@ async function serveResponse(
 
 export function startGateway(options: GatewayOptions): Promise<RunningGateway> {
   const token = `nexus-session-${randomUUID()}`;
-  const session: SessionState = { cooldownUntil: new Map(), fallbacks: [] };
+  const session: SessionState = { cooldownUntil: new Map(), fallbacks: [], quotaHits: 0 };
   const server: Server = createServer((req, res) => {
     void (async () => {
       debugLog(`${req.method} ${req.url}`);
@@ -292,6 +297,7 @@ export function startGateway(options: GatewayOptions): Promise<RunningGateway> {
         baseUrl: `http://${LOOPBACK}:${address.port}`,
         token,
         fallbacks: () => session.fallbacks,
+        quotaHits: () => session.quotaHits,
         close: () =>
           new Promise<void>((done) => {
             // closeAllConnections: an open SSE stream would otherwise hold

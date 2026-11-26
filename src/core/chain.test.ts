@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Provider, ProviderModel } from '../types/provider.types.js';
-import { buildRoutes } from './chain.js';
+import { buildRoutes, canFallBack } from './chain.js';
 
 const model = (id: string, over: Partial<ProviderModel> = {}): ProviderModel => ({
   id,
@@ -75,4 +75,10 @@ test('Groq carries its request ceiling into the route', () => {
   const [route] = buildRoutes(capped, 'groq/big', [], everyKey);
   assert.equal(route!.maxRequestTokens, 8000);
   assert.equal(route!.context, 131072);
+});
+
+test('canFallBack: only providers with a classed free/quota model can stand in', () => {
+  assert.equal(canFallBack(groq), true);
+  assert.equal(canFallBack(mistral), false); // its only classed model is paid
+  assert.equal(canFallBack(gateway('plain', 1, [model('plain/m')])), false); // no class
 });

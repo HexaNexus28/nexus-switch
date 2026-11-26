@@ -4,6 +4,11 @@
   "default": "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b",
   "fallback_order": 3,
   "setup": "nexus key set nvidia <key> (build.nvidia.com). Account required, no card. Free tier ~40 req/min + 1000 credits on sign-up. Source: build.nvidia.com/models. Ids checked against the live API on 2026-10-08",
+  "data_policy": {
+    "summary": "Trial only, not for production. Content may be used, without identifying you, to improve NVIDIA models.",
+    "source": "https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf",
+    "checked": "2026-11-26"
+  },
   "api": {
     "base_url": "https://integrate.api.nvidia.com/v1",
     "model_prefix": "nvidia_nim/"

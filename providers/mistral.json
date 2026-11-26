@@ -4,6 +4,11 @@
   "default": "mistral/devstral-2",
   "fallback_order": 4,
   "setup": "nexus key set mistral <key> (console.mistral.ai). Account required, no card. Experimental free tier with restrictions. Source: mistral.ai/pricing",
+  "data_policy": {
+    "summary": "Free plan: used to train Mistral models by default. Turn it off in admin.mistral.ai > Privacy.",
+    "source": "https://help.mistral.ai/en/articles/455207-can-i-opt-out-of-my-input-or-output-data-being-used-for-training",
+    "checked": "2026-11-26"
+  },
   "api": {
     "base_url": "https://api.mistral.ai/v1",
     "model_prefix": "mistral/"

@@ -6,6 +6,11 @@
   "fallback_order": 5,
   "max_request_tokens": 8000,
   "setup": "nexus key set groq <key> (console.groq.com). Account required, no card. Free tier: 8000 tokens/min per model (measured 2026-11-25), too little for Claude Code's full prompt (24-37k) -> launches with --bare; NEXUS_FULL_PROMPT=1 on Dev Tier. Source: console.groq.com/docs/models, groq.com/pricing. Ids checked against the live API on 2026-10-08",
+  "data_policy": {
+    "summary": "Not retained by default; logs kept up to 30 days for abuse checks. Training not addressed on its data page.",
+    "source": "https://console.groq.com/docs/your-data",
+    "checked": "2026-11-26"
+  },
   "api": {
     "base_url": "https://api.groq.com/openai/v1",
     "model_prefix": "groq/"

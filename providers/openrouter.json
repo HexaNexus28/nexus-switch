@@ -4,6 +4,11 @@
   "default": "nvidia/nemotron-3.5-lightning:free",
   "credits_api": "https://openrouter.ai/api/v1/credits",
   "setup": "nexus key set openrouter <key> (openrouter.ai/keys). Account required, no card. :free models = free with a quota (50 req/day). Source: openrouter.ai/models. Ids checked against the live API on 2026-10-08",
+  "data_policy": {
+    "summary": "Depends on the host serving the model. Refuse hosts that train on your data in openrouter.ai/settings/privacy.",
+    "source": "https://openrouter.ai/docs/guides/privacy/provider-logging",
+    "checked": "2026-11-26"
+  },
   "env": {
     "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
     "ANTHROPIC_AUTH_TOKEN": "${OPENROUTER_API_KEY}",

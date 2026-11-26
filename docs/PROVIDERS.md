@@ -61,7 +61,14 @@ re-check it when Claude Code changes.
 
 ### Fallback between gateway providers
 
-When the picked provider answers 429, 413, 502, 503, 504, 529 or cannot be
+Off by default: it would send the user's code to a provider they did not pick. `nexus chain
+auto|set` lists every provider that could receive it, with its `data_policy`, and asks for
+confirmation (`--yes` outside a TTY); the choice is stored as `fallback` in
+`~/.nexus-switch/config.json`, `nexus chain off` removes it. While it is off, the gateway still
+counts 429/413 answers from the picked provider and, after such a session, suggests
+`nexus chain auto` in one line.
+
+When it is on and the picked provider answers 429, 413, 502, 503, 504, 529 or cannot be
 reached, and the response has not started yet, the gateway retries the request on
 the next route. Once SSE bytes are on the wire it never switches: the failure
 becomes a stream error.
@@ -78,8 +85,15 @@ Only `free` and `quota` models are ever picked; on each fallback provider its
 `default` model is preferred when it has the right class. A failing route is put
 aside for its `Retry-After` window (60 s by default, 15 min max; none for 413,
 since smaller requests may still fit), then the picked provider is used again.
-`nexus chain set <provider>...` replaces the automatic order (stored in
-`~/.nexus-switch/config.json`); `NEXUS_NO_FALLBACK=1` disables fallback.
+`nexus chain set <provider>...` replaces the automatic order; `NEXUS_NO_FALLBACK=1` disables
+fallback for one session.
+
+### `data_policy` (catalog)
+
+Each provider may carry `{ summary, source, checked }`: one or two sentences from its own terms,
+the official URL, and the date it was read. The picker shows it under the cost of the
+highlighted model; local models say nothing leaves the machine; a provider without the field
+is shown as "not checked by nexus yet" — never guessed.
 
 ## OpenRouter
 

@@ -3,6 +3,11 @@
   "name": "Cerebras",
   "default": "cerebras/gpt-oss-120b",
   "setup": "nexus key set cerebras <key> (cloud.cerebras.ai). No permanent free tier: a payment method is required, then a one-time $5 credit that expires after 30 days. For development and evaluation. Source: cerebras.ai/pricing, inference-docs.cerebras.ai/support/rate-limits (checked 2026-11-26).",
+  "data_policy": {
+    "summary": "Inputs and outputs not retained.",
+    "source": "https://www.cerebras.ai/privacy-policy",
+    "checked": "2026-11-26"
+  },
   "api": {
     "base_url": "https://api.cerebras.ai/v1",
     "model_prefix": "cerebras/"

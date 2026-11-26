@@ -28,6 +28,14 @@ export async function ensureClaude(): Promise<boolean> {
   return claudeExists();
 }
 
+/** Ask a [y/N] question on the terminal; anything but y/o is a no. */
+export async function askYesNo(question: string): Promise<boolean> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const answer = (await rl.question(question)).trim();
+  rl.close();
+  return /^[oy]/i.test(answer);
+}
+
 /** Locally-pulled Ollama model names, or null if `ollama` itself can't be run. */
 function ollamaInstalledModels(): Set<string> | null {
   const result = spawnSync('ollama', ['list'], { encoding: 'utf8' });

@@ -296,6 +296,7 @@ test('fallback: a 429 is served by the next provider, with its own model and key
     const msg = (await res.json()) as { model: string };
     assert.equal(msg.model, 'flaky/big'); // claude keeps seeing the model it asked for
     assert.deepEqual(g.fallbacks(), [{ from: 'Flaky', to: 'Cerebras', status: 429 }]);
+    assert.equal(g.quotaHits(), 1); // counted on the picked provider
 
     // Retry-After: 30 -> the primary is skipped while it cools down.
     const again = await callGateway('/v1/messages', request({ model: 'flaky/big' }), undefined, g);
@@ -356,4 +357,14 @@ test('fallback: never switches once the stream has started', async () => {
     assert.equal(flakyHits, 0);
   });
   mode = 'json';
+});
+
+test('quota hits are counted on the picked provider even without fallback', async () => {
+  flakyStatus = 429;
+  await withGateway([flakyRoute()], async (g) => {
+    const res = await callGateway('/v1/messages', request({ model: 'flaky/big' }), undefined, g);
+    assert.equal(res.status, 429);
+    assert.equal(g.quotaHits(), 1);
+    assert.deepEqual(g.fallbacks(), []);
+  });
 });
