@@ -74,6 +74,12 @@ src/
     credits.ts          OpenRouter balance + key presence
     doctor.ts           diagnostics + key validation
     update.ts           daily npm check (cached), "newer version" notice; never self-installs
+    package-info.ts     version + issues URL from the shipped package.json
+    report.ts           `nexus report`: redacted diagnostic -> pre-filled GitHub issue (nothing sent by nexus)
+  i18n/
+    en.ts               every user-facing string (source of truth, defines the Messages type)
+    fr.ts               French; must match en.ts key for key (compile-time check)
+    index.ts            locale: NEXUS_LANG > LC_ALL/LC_MESSAGES/LANG (not on Windows) > Intl; default en
   gateway/
     server.ts           loopback HTTP server, auth, SSE/JSON responses
     translate.ts        Anthropic <-> OpenAI request/response translation
@@ -88,6 +94,8 @@ src/
   types/
     provider.types.ts
     gateway.types.ts
+    i18n.types.ts
+    report.types.ts
 bin/nexus.js            entrypoint (boots Ink for the bare `nexus` command)
 providers/*.json        provider + model catalog (single source of truth)
 ```
