@@ -141,7 +141,12 @@ nexus refresh                     # refresh the OpenRouter + Ollama model lists
 nexus report                      # report a problem (pre-filled GitHub issue)
 nexus update                      # update nexus-switch
 nexus uninstall                   # remove nexus and every key it stored
+nexus help                        # every command and environment variable (-h, --help)
+nexus version                     # installed version (-v, --version)
 ```
+
+A mistyped command or provider gets a suggestion (`nexus groc` → did you mean `nexus groq`?);
+in a terminal, answering `y` runs it.
 
 - **Language** — English, or French when your system language is French. Force one with
   `NEXUS_LANG=en` or `NEXUS_LANG=fr`.

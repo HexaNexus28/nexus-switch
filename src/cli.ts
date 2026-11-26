@@ -1,16 +1,29 @@
 import { refreshOllama, refreshOpenRouter } from './core/catalog.js';
 import { canFallBack, fallbackPool } from './core/chain.js';
+import { closest, COMMAND_FLAGS, COMMANDS, renderHelp, resolveCommand } from './core/commands.js';
 import { readConfig, writeConfig, type FallbackSetting } from './core/config.js';
 import { gatewayKeyStatus, openRouterCredits } from './core/credits.js';
 import { runDoctor } from './core/doctor.js';
 import { deleteKey, KEY_VARS, keyVarFor, readKey, setKey } from './core/keys.js';
 import { launch, runNpm } from './core/launch.js';
+import { PACKAGE } from './core/package-info.js';
 import { listProviders, loadAllProviders, loadProvider } from './core/providers.js';
 import { runReport } from './core/report.js';
 import { migrateLegacyEnv, purgeLegacyEnv, purgeLegacyLitellm, wipeSecretStore } from './core/secrets.js';
 import { availableUpdate, refreshUpdateCache } from './core/update.js';
 import { askYesNo, ensureClaude, ensureOllamaModel, ensureProviderKey } from './prompt.js';
 import { t } from './i18n/index.js';
+
+const KEY_ACTIONS = ['set', 'list', 'delete'] as const;
+const CHAIN_ACTIONS = ['auto', 'set', 'off'] as const;
+
+/** One wrong word: say what was not understood, the likely intent, then the right usage. */
+function explainUnknown(headline: string, suggestion: string | undefined, usage: string): void {
+  if (headline) console.error(headline);
+  if (suggestion) console.error(t.cli.didYouMean(suggestion));
+  console.error(usage);
+  process.exitCode = 1;
+}
 
 function mark(ok: boolean): string {
   return ok ? 'OK' : 'KO';
@@ -51,8 +64,8 @@ function cmdKey(args: string[]): void {
   if (sub === 'set' && provider && value) {
     const varName = keyVarFor(provider);
     if (!varName) {
-      console.error(t.cli.unsupportedProvider(provider));
-      process.exitCode = 1;
+      const guess = closest(provider, Object.keys(KEY_VARS));
+      explainUnknown(t.cli.unsupportedProvider(provider), guess && `key set ${guess} ${t.cli.keyArg}`, t.cli.keyUsage);
       return;
     }
     setKey(varName, value);
@@ -62,16 +75,17 @@ function cmdKey(args: string[]): void {
   if (sub === 'delete' && provider) {
     const varName = keyVarFor(provider);
     if (!varName) {
-      console.error(t.cli.unsupportedProvider(provider));
-      process.exitCode = 1;
+      const guess = closest(provider, Object.keys(KEY_VARS));
+      explainUnknown(t.cli.unsupportedProvider(provider), guess && `key delete ${guess}`, t.cli.keyUsage);
       return;
     }
     deleteKey(varName);
     console.log(t.cli.keyDeleted(varName));
     return;
   }
-  console.error(t.cli.keyUsage);
-  process.exitCode = 1;
+  const known = sub !== undefined && (KEY_ACTIONS as readonly string[]).includes(sub);
+  const guess = sub === undefined || known ? undefined : closest(sub, KEY_ACTIONS);
+  explainUnknown(known || sub === undefined ? '' : t.cli.unknownSub('key', sub), guess && `key ${guess}`, t.cli.keyUsage);
 }
 
 /**
@@ -100,14 +114,16 @@ async function cmdChain(args: string[]): Promise<void> {
     return;
   }
   if ((sub !== 'auto' && sub !== 'set') || (sub === 'set' && ids.length === 0)) {
-    console.error(t.fallback.usage);
-    process.exitCode = 1;
+    const known = (CHAIN_ACTIONS as readonly string[]).includes(sub);
+    const guess = known ? undefined : closest(sub, CHAIN_ACTIONS);
+    explainUnknown(known ? '' : t.cli.unknownSub('chain', sub), guess && `chain ${guess}`, t.fallback.usage);
     return;
   }
+  const gateways = listProviders().filter((id) => loadProvider(id).type === 'gateway');
   for (const id of ids) {
-    if (!listProviders().includes(id) || loadProvider(id).type !== 'gateway') {
-      console.error(t.fallback.notGateway(id));
-      process.exitCode = 1;
+    if (!gateways.includes(id)) {
+      const guess = closest(id, gateways);
+      explainUnknown(t.fallback.notGateway(id), guess && `chain set ${ids.map((x) => (x === id ? guess : x)).join(' ')}`, t.fallback.usage);
       return;
     }
   }
@@ -141,11 +157,6 @@ async function cmdChain(args: string[]): Promise<void> {
 }
 
 async function cmdLaunch(name: string, rest: string[]): Promise<void> {
-  if (!listProviders().includes(name)) {
-    console.error(t.cli.unknownProvider(name, listProviders().join(', ')));
-    process.exitCode = 1;
-    return;
-  }
   if (!(await ensureClaude())) {
     process.exitCode = 1;
     return;
@@ -197,26 +208,62 @@ function cmdUninstall(): void {
 }
 
 function cmdHelp(): void {
-  console.log(
-    [
-      'Nexus Switch',
-      '',
-      'Usage:',
-      '  nexus                       interactive TUI',
-      '  nexus <provider> [model] [-- claude flags]',
-      '  nexus doctor',
-      '  nexus credits',
-      '  nexus chain [auto | set <provider>... | off]   fallback when a free quota runs out (off by default)',
-      '  nexus report                report a problem (pre-filled GitHub issue)',
-      '  nexus refresh',
-      '  nexus key set <provider> <key>',
-      '  nexus key list',
-      '  nexus key delete <provider>',
-      '  nexus update | uninstall',
-      '',
-      `Providers : ${listProviders().join(', ')}`,
-    ].join('\n'),
-  );
+  console.log(renderHelp(t, listProviders(), PACKAGE.version));
+}
+
+function cmdVersion(): void {
+  console.log(`nexus-switch ${PACKAGE.version}`);
+}
+
+/**
+ * Neither a command nor a provider: name what was not understood and, when it
+ * looks like a typo, offer the likely command — run it on "y" in a terminal,
+ * print it otherwise (scripts must not run a guess).
+ */
+async function cmdUnknown(name: string, rest: string[]): Promise<void> {
+  const isFlag = name.startsWith('-');
+  const guess = closest(name, isFlag ? Object.keys(COMMAND_FLAGS) : [...COMMANDS, ...listProviders()]);
+  console.error(isFlag ? t.cli.unknownOption(name) : t.cli.unknownCommand(name));
+  if (guess && process.stdin.isTTY && process.stdout.isTTY) {
+    if (await askYesNo(t.cli.askDidYouMean(guess))) {
+      await run(guess, rest);
+      return;
+    }
+  } else if (guess) {
+    console.error(t.cli.didYouMean(guess));
+  } else if (!isFlag) {
+    console.error(t.cli.providersList(listProviders().join(', ')));
+  }
+  console.error(t.cli.seeHelp);
+  process.exitCode = 1;
+}
+
+async function run(cmd: string, rest: string[]): Promise<void> {
+  const command = resolveCommand(cmd);
+  switch (command) {
+    case 'doctor':
+      return cmdDoctor();
+    case 'refresh':
+      return cmdRefresh();
+    case 'key':
+      return cmdKey(rest);
+    case 'chain':
+      return cmdChain(rest);
+    case 'credits':
+      return cmdCredits();
+    case 'report':
+      return runReport();
+    case 'update':
+      return cmdUpdate();
+    case 'uninstall':
+      return cmdUninstall();
+    case 'help':
+      return cmdHelp();
+    case 'version':
+      return cmdVersion();
+    case undefined:
+      return listProviders().includes(cmd) ? cmdLaunch(cmd, rest) : cmdUnknown(cmd, rest);
+  }
 }
 
 async function main(): Promise<void> {
@@ -240,41 +287,8 @@ async function main(): Promise<void> {
     }
     return;
   }
-  const cmd = args[0]!;
-  const rest = args.slice(1);
-  switch (cmd) {
-    case 'doctor':
-      await cmdDoctor();
-      break;
-    case 'refresh':
-      await cmdRefresh();
-      break;
-    case 'key':
-      cmdKey(rest);
-      break;
-    case 'chain':
-      await cmdChain(rest);
-      break;
-    case 'credits':
-      await cmdCredits();
-      break;
-    case 'report':
-      runReport();
-      break;
-    case 'update':
-      cmdUpdate();
-      break;
-    case 'uninstall':
-      cmdUninstall();
-      break;
-    case 'help':
-    case '--help':
-    case '-h':
-      cmdHelp();
-      break;
-    default:
-      await cmdLaunch(cmd, rest);
-  }
+  const [cmd = '', ...rest] = args;
+  await run(cmd, rest);
 }
 
 main().catch((err: unknown) => {
