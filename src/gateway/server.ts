@@ -18,6 +18,7 @@ import type { AnthropicMessagesRequest, GatewayApi, OpenAIChatResponse } from '.
 import { nexusDataDir } from '../core/secrets.js';
 import { createSseParser, createStreamTranslator } from './stream.js';
 import { estimateTokens, translateRequest, translateResponse } from './translate.js';
+import { t } from '../i18n/index.js';
 
 const LOOPBACK = '127.0.0.1';
 
@@ -45,10 +46,6 @@ function debugLog(line: string): void {
     /* debug only — never disturb the session */
   }
 }
-
-const QUOTA_HINT =
-  'nexus : requete plus grosse que le quota tokens/minute du provider. ' +
-  'Relance avec `-- --bare` (prompt reduit), choisis un autre provider, ou passe au palier payant.';
 
 /** Upstream HTTP status -> Anthropic error type (what Claude Code knows to render/retry). */
 function errorType(status: number): string {
@@ -132,7 +129,7 @@ async function handleMessages(
     });
   } catch (err) {
     if (clientGone.aborted) return; // client cancelled; nothing to answer
-    sendError(res, 502, `Provider injoignable (${options.api.base_url}): ${err instanceof Error ? err.message : String(err)}`);
+    sendError(res, 502, t.gateway.providerUnreachable(options.api.base_url, err instanceof Error ? err.message : String(err)));
     return;
   }
   if (!upstream.ok) {
@@ -143,7 +140,7 @@ async function handleMessages(
       // drops ours. A provider 413 is a token quota (Groq free tier: 8000 TPM vs
       // ~24k for a full Claude Code prompt): retrying never helps, so answer 400.
       sendError(res, 400, `${upstreamErrorMessage(text)}
-${QUOTA_HINT}`);
+${t.gateway.quotaHint}`);
       return;
     }
     sendError(res, upstream.status, upstreamErrorMessage(text));

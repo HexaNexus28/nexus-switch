@@ -7,6 +7,7 @@ import { listProviders, loadProvider } from './core/providers.js';
 import { migrateLegacyEnv, purgeLegacyEnv, purgeLegacyLitellm, wipeSecretStore } from './core/secrets.js';
 import { availableUpdate, refreshUpdateCache } from './core/update.js';
 import { ensureClaude, ensureOllamaModel, ensureProviderKey } from './prompt.js';
+import { t } from './i18n/index.js';
 
 function mark(ok: boolean): string {
   return ok ? 'OK' : 'KO';
@@ -18,7 +19,7 @@ async function cmdDoctor(): Promise<void> {
   console.log(`${mark(report.claude)}  Claude Code CLI${claudeNote}`);
   for (const k of report.keys) {
     const status = !k.present ? '..' : k.valid === false ? 'KO' : 'OK';
-    const note = k.valid === true ? 'valide' : k.valid === false ? 'cle rejetee' : k.present ? 'presente' : 'absente';
+    const note = k.valid === true ? t.cli.keyValid : k.valid === false ? t.cli.keyRejected : k.present ? t.cli.keyPresent : t.cli.keyAbsent;
     console.log(`${status}  ${k.provider.padEnd(10)} ${k.varName.padEnd(20)} ${note}`);
   }
 }
@@ -26,12 +27,12 @@ async function cmdDoctor(): Promise<void> {
 async function cmdRefresh(): Promise<void> {
   const { kept, removed } = await refreshOpenRouter();
   const tail = removed.length ? ` : ${removed.join(', ')}` : '';
-  console.log(`OpenRouter: ${kept} modeles conserves, ${removed.length} retires${tail}`);
+  console.log(t.cli.refreshOpenRouter(kept, removed.length, tail));
   try {
     const { models } = refreshOllama();
-    console.log(`Ollama    : ${models} modeles (depuis ollama list)`);
+    console.log(t.cli.refreshOllama(models));
   } catch (err) {
-    console.log(`Ollama    : ${err instanceof Error ? err.message : 'ignore'}`);
+    console.log(`Ollama    : ${err instanceof Error ? err.message : t.cli.skipped}`);
   }
 }
 
@@ -47,32 +48,32 @@ function cmdKey(args: string[]): void {
   if (sub === 'set' && provider && value) {
     const varName = keyVarFor(provider);
     if (!varName) {
-      console.error(`Provider non supporte : ${provider}`);
+      console.error(t.cli.unsupportedProvider(provider));
       process.exitCode = 1;
       return;
     }
     setKey(varName, value);
-    console.log(`${varName} enregistree dans ~/.nexus-switch.`);
+    console.log(t.setup.keySaved(varName));
     return;
   }
   if (sub === 'delete' && provider) {
     const varName = keyVarFor(provider);
     if (!varName) {
-      console.error(`Provider non supporte : ${provider}`);
+      console.error(t.cli.unsupportedProvider(provider));
       process.exitCode = 1;
       return;
     }
     deleteKey(varName);
-    console.log(`${varName} supprimee de ~/.nexus-switch.`);
+    console.log(t.cli.keyDeleted(varName));
     return;
   }
-  console.error('Usage: nexus key set <provider> <cle> | nexus key list | nexus key delete <provider>');
+  console.error(t.cli.keyUsage);
   process.exitCode = 1;
 }
 
 async function cmdLaunch(name: string, rest: string[]): Promise<void> {
   if (!listProviders().includes(name)) {
-    console.error(`Provider inconnu : ${name}. Disponibles : ${listProviders().join(', ')}`);
+    console.error(t.cli.unknownProvider(name, listProviders().join(', ')));
     process.exitCode = 1;
     return;
   }
@@ -98,7 +99,7 @@ async function cmdLaunch(name: string, rest: string[]): Promise<void> {
     return;
   }
   const update = availableUpdate();
-  if (update) console.error(`nexus ${update} disponible -> nexus update`);
+  if (update) console.error(t.cli.updateAvailable(update));
   void refreshUpdateCache();
   await launch(provider, model, passthrough);
 }
@@ -106,9 +107,9 @@ async function cmdLaunch(name: string, rest: string[]): Promise<void> {
 async function cmdCredits(): Promise<void> {
   console.log(`OpenRouter : ${await openRouterCredits()}`);
   for (const { provider, present } of gatewayKeyStatus()) {
-    console.log(`${provider.padEnd(10)} : ${present ? 'cle presente' : 'absente'}`);
+    console.log(`${provider.padEnd(10)} : ${present ? t.cli.creditsKeyPresent : t.cli.keyAbsent}`);
   }
-  console.log('Ollama     : local illimite · cloud quota (https://ollama.com/dashboard)');
+  console.log(t.cli.creditsOllama);
 }
 
 function cmdUpdate(): void {
@@ -121,7 +122,7 @@ function cmdUninstall(): void {
   // from the pre-store era.
   wipeSecretStore();
   for (const varName of [...Object.values(KEY_VARS), 'NEXUS_PROXY_KEY']) purgeLegacyEnv(varName);
-  console.log('Secrets et config supprimes (~/.nexus-switch + env global purge).');
+  console.log(t.cli.uninstalled);
   const status = runNpm(['rm', '-g', '@hexanexus/nexus-switch']);
   if (status !== 0) process.exitCode = status ?? 1;
 }

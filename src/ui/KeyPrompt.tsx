@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
+import { t } from '../i18n/index.js';
 
 interface Props {
   providerId: string;
@@ -35,16 +36,16 @@ export function KeyPrompt({ providerId, varName, onSubmit, onCancel }: Props) {
   return (
     <Box flexDirection="column" paddingX={1}>
       <Text color="yellow" bold>
-        {`Cle API ${providerId} absente (${varName})`}
+        {t.keyPrompt.title(providerId, varName)}
       </Text>
-      <Text>Colle ta cle — elle sera stockee dans ~/.nexus-switch, jamais dans l'environnement global.</Text>
+      <Text>{t.keyPrompt.body}</Text>
       <Box marginTop={1}>
         <Text color="cyan">{'▸ '}</Text>
         <Text>{value ? '•'.repeat(Math.min(value.length, 48)) : ''}</Text>
-        <Text dimColor>{value ? `  (${value.length})` : '(colle ici)'}</Text>
+        <Text dimColor>{value ? `  (${value.length})` : t.keyPrompt.placeholder}</Text>
       </Box>
       <Box marginTop={1}>
-        <Text dimColor>{'Entree valider · Esc / Entree vide annuler'}</Text>
+        <Text dimColor>{t.keyPrompt.hint}</Text>
       </Box>
     </Box>
   );

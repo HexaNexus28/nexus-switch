@@ -1,6 +1,7 @@
 import { Box, Text, useInput } from 'ink';
 import { useState } from 'react';
 import type { Provider } from '../types/provider.types.js';
+import { t } from '../i18n/index.js';
 
 interface Props {
   providers: Provider[];
@@ -8,11 +9,17 @@ interface Props {
   onQuit: () => void;
 }
 
-/** "8 modeles · gratuit" / "9 modeles · quota" — the cheapest tier available. */
+/** "8 models · free" / "9 models · free quota" — the cheapest tier available. */
 function summary(p: Provider): string {
   const tiers = new Set(p.models.map((m) => m.tier));
-  const best = tiers.has('free') ? 'gratuit' : tiers.has('quota') ? 'quota gratuit' : tiers.has('paid') ? 'payant' : 'abonnement';
-  return `${p.models.length} modeles · ${best}${p.bare ? ' · mode reduit' : ''}`;
+  const best = tiers.has('free')
+    ? t.providers.bestFree
+    : tiers.has('quota')
+      ? t.providers.bestQuota
+      : tiers.has('paid')
+        ? t.providers.bestPaid
+        : t.providers.bestSubscription;
+  return `${t.providers.models(p.models.length)} · ${best}${p.bare ? t.providers.reduced : ''}`;
 }
 
 export function ProviderList({ providers, onSelect, onQuit }: Props) {
@@ -36,10 +43,10 @@ export function ProviderList({ providers, onSelect, onQuit }: Props) {
         <Text color="cyan" bold>
           Providers
         </Text>
-        <Text dimColor>{'  ·  choisis ta source de modeles'}</Text>
+        <Text dimColor>{t.providers.subtitle}</Text>
       </Text>
       <Text dimColor>{'─'.repeat(Math.min(72, nameWidth + 30))}</Text>
-      {providers.length === 0 ? <Text color="red">Aucun provider valide dans providers/.</Text> : null}
+      {providers.length === 0 ? <Text color="red">{t.providers.none}</Text> : null}
       {providers.map((p, i) => {
         const selected = i === cursor;
         return (
@@ -53,7 +60,7 @@ export function ProviderList({ providers, onSelect, onQuit }: Props) {
         );
       })}
       <Box marginTop={1}>
-        <Text dimColor>{'↑↓ naviguer · ⏎ choisir · q quitter'}</Text>
+        <Text dimColor>{t.providers.hint}</Text>
       </Box>
     </Box>
   );

@@ -305,6 +305,7 @@ function buildChildEnv(opts: {
     NEXUS_DATA_DIR: opts.dataDir,
     NEXUS_SECRETS_PLAINTEXT: '1',
     NEXUS_NO_UPDATE_CHECK: '1', // no registry traffic from tests
+    NEXUS_LANG: 'en', // assertions match the English UI, whatever the host locale
   };
   for (const name of SCRUBBED_VARS) delete env[name];
   if (opts.binDir) {

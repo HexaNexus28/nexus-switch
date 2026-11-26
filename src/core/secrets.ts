@@ -15,6 +15,7 @@ import { execFileSync } from 'node:child_process';
 import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, parse, resolve } from 'node:path';
+import { t } from '../i18n/index.js';
 
 /** Nexus-managed secret names that previously lived as global env vars. */
 const LEGACY_ENV_NAMES = [
@@ -261,7 +262,7 @@ export function wipeSecretStore(): void {
     resolved === resolve(homedir()) ||
     resolved === resolve(process.cwd())
   ) {
-    console.error(`Refus de supprimer ${dir} : repertoire trop large.`);
+    console.error(t.secrets.refuseWipe(dir));
     return;
   }
   try {

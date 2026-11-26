@@ -1,6 +1,7 @@
 import { Box, Text, useInput } from 'ink';
 import { useState } from 'react';
 import type { ModelTier, Provider, ProviderModel } from '../types/provider.types.js';
+import { t } from '../i18n/index.js';
 
 interface Props {
   provider: Provider;
@@ -11,11 +12,11 @@ interface Props {
 /** Cheapest-first: what a fresh user wants to reach without reading anything. */
 const TIER_ORDER: Record<ModelTier, number> = { free: 0, quota: 1, paid: 2, subscription: 3 };
 
-const TIER_BADGE: Record<ModelTier, { label: string; color: string }> = {
-  free: { label: 'GRATUIT', color: 'green' },
-  quota: { label: 'QUOTA', color: 'yellow' },
-  paid: { label: 'PAYANT', color: 'red' },
-  subscription: { label: 'UPGRADE', color: 'magenta' },
+const TIER_COLOR: Record<ModelTier, string> = {
+  free: 'green',
+  quota: 'yellow',
+  paid: 'red',
+  subscription: 'magenta',
 };
 
 /** Context window as a compact label: 1000000 -> "1M", 256000 -> "256K". */
@@ -37,25 +38,23 @@ function fmtMeta(m: ProviderModel): string {
 }
 
 /**
- * One plain-French sentence answering "what happens to my wallet if I pick
+ * One plain sentence answering "what happens to my wallet if I pick
  * this?" — written for someone who knows nothing about the provider. Shown for
  * the highlighted model, so the row badges stay compact.
  */
 function costSentence(m: ProviderModel): string {
-  const account = m.signin_required ? `compte ${m.signin_required} gratuit requis` : 'compte gratuit requis';
+  const account = m.signin_required ? t.picker.accountNamed(m.signin_required) : t.picker.accountGeneric;
   const price =
-    typeof m.price_in === 'number' && m.price_in > 0
-      ? `$${m.price_in} in / $${m.price_out ?? '?'} out par M tokens`
-      : null;
+    typeof m.price_in === 'number' && m.price_in > 0 ? t.picker.pricePerMillion(m.price_in, m.price_out ?? '?') : null;
   switch (m.tier) {
     case 'free':
-      return 'Gratuit — tourne sur ta machine, aucun compte, aucune facturation.';
+      return t.picker.costFree;
     case 'quota':
-      return `Gratuit jusqu'au quota (${account}) — au-dela : ${price ?? 'bloque jusqu\'au reset, ou plan payant'}.`;
+      return t.picker.costQuota(account, price ?? t.picker.quotaBeyondDefault);
     case 'paid':
-      return `Payant des la premiere requete — ${price ?? 'voir la grille du provider'}.`;
+      return t.picker.costPaid(price ?? t.picker.paidDefault);
     case 'subscription':
-      return 'Abonnement payant OBLIGATOIRE avant usage — ne fonctionne pas avec un compte gratuit.';
+      return t.picker.costSubscription;
   }
 }
 
@@ -78,18 +77,18 @@ export function ModelPicker({ provider, onSelect, onBack }: Props) {
         <Text color="cyan" bold>
           {provider.name}
         </Text>
-        <Text dimColor>{`  ·  ${models.length} modeles`}</Text>
+        <Text dimColor>{`  ·  ${t.providers.models(models.length)}`}</Text>
       </Text>
       <Text dimColor>{'─'.repeat(Math.min(72, nameWidth + 40))}</Text>
       {models.map((m, i) => {
-        const badge = TIER_BADGE[m.tier];
+        const color = TIER_COLOR[m.tier];
         const selected = i === cursor;
         return (
           <Text key={m.id}>
             <Text color="cyan">{selected ? '▸ ' : '  '}</Text>
-            <Text color={badge.color}>{'● '}</Text>
-            <Text color={badge.color} dimColor={!selected}>
-              {badge.label.padEnd(8)}
+            <Text color={color}>{'● '}</Text>
+            <Text color={color} dimColor={!selected}>
+              {t.picker.badge[m.tier].padEnd(8)}
             </Text>
             <Text bold={selected} dimColor={!selected}>
               {m.name.padEnd(nameWidth + 2)}
@@ -100,13 +99,13 @@ export function ModelPicker({ provider, onSelect, onBack }: Props) {
       })}
       <Box flexDirection="column" marginTop={1}>
         <Text>
-          <Text color={current ? TIER_BADGE[current.tier].color : 'gray'}>{'▍ '}</Text>
+          <Text color={current ? TIER_COLOR[current.tier] : 'gray'}>{'▍ '}</Text>
           {current ? costSentence(current) : ''}
         </Text>
         {current?.note ? <Text dimColor>{`  ${current.note}`}</Text> : null}
       </Box>
       <Box marginTop={1}>
-        <Text dimColor>{'↑↓ naviguer · ⏎ lancer · ← providers · q quitter'}</Text>
+        <Text dimColor>{t.picker.hint}</Text>
       </Box>
     </Box>
   );

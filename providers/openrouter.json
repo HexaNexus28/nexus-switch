@@ -3,7 +3,7 @@
   "name": "OpenRouter",
   "default": "nvidia/nemotron-3.5-lightning:free",
   "credits_api": "https://openrouter.ai/api/v1/credits",
-  "setup": "nexus key set openrouter <cle> (openrouter.ai/keys). Compte requis, sans CB. Modeles :free = gratuits avec quota (50 req/jour). Source : openrouter.ai/models. Ids verifies contre l'API live le 2026-10-08",
+  "setup": "nexus key set openrouter <key> (openrouter.ai/keys). Account required, no card. :free models = free with a quota (50 req/day). Source: openrouter.ai/models. Ids checked against the live API on 2026-10-08",
   "env": {
     "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
     "ANTHROPIC_AUTH_TOKEN": "${OPENROUTER_API_KEY}",
@@ -19,7 +19,7 @@
       "context": 1000000,
       "price_in": 0,
       "price_out": 0,
-      "note": "agentic, tools, 1M ctx — compte requis (openrouter.ai), 50 req/jour"
+      "note": "agentic, tools, 1M ctx — account required (openrouter.ai), 50 req/day"
     },
     {
       "id": "thinkingmachines/inkling:free",
@@ -30,7 +30,7 @@
       "context": 1049000,
       "price_in": 0,
       "price_out": 0,
-      "note": "agentic long contexte, tools — compte requis, 50 req/jour"
+      "note": "long-context agentic, tools — account required, 50 req/day"
     },
     {
       "id": "nvidia/nemotron-3-ultra-550b-a55b:free",
@@ -41,7 +41,7 @@
       "context": 1000000,
       "price_in": 0,
       "price_out": 0,
-      "note": "agentic, tools, 1M ctx — compte requis, 50 req/jour"
+      "note": "agentic, tools, 1M ctx — account required, 50 req/day"
     },
     {
       "id": "nvidia/nemotron-3-super-120b-a12b:free",
@@ -52,7 +52,7 @@
       "context": 262000,
       "price_in": 0,
       "price_out": 0,
-      "note": "agentic, tools — compte requis, 50 req/jour"
+      "note": "agentic, tools — account required, 50 req/day"
     },
     {
       "id": "cohere/north-mini-code:free",
@@ -63,7 +63,7 @@
       "context": 256000,
       "price_in": 0,
       "price_out": 0,
-      "note": "coding agent, tools, 256K ctx — compte requis, 50 req/jour"
+      "note": "coding agent, tools, 256K ctx — account required, 50 req/day"
     },
     {
       "id": "poolside/laguna-s-2.1:free",
@@ -74,7 +74,7 @@
       "context": 262000,
       "price_in": 0,
       "price_out": 0,
-      "note": "coding agent, tools — compte requis, 50 req/jour"
+      "note": "coding agent, tools — account required, 50 req/day"
     },
     {
       "id": "poolside/laguna-xs-2.1:free",
@@ -85,7 +85,7 @@
       "context": 262000,
       "price_in": 0,
       "price_out": 0,
-      "note": "coding agent leger, tools — compte requis, 50 req/jour"
+      "note": "lightweight coding agent, tools — account required, 50 req/day"
     },
     {
       "id": "anthropic/claude-opus-5.5",
@@ -95,7 +95,7 @@
       "context": 1000000,
       "price_in": 4,
       "price_out": 20,
-      "note": "PAYANT — Claude natif via OpenRouter (premium)"
+      "note": "PAID — native Claude via OpenRouter (premium)"
     }
   ]
 }

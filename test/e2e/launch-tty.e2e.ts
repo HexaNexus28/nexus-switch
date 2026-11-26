@@ -25,7 +25,7 @@ test('claude inherits an interactive TTY after a readline prompt', async (t) => 
       binDir,
       extraEnv: { NEXUS_E2E_CLAUDE_LOG: claudeLog },
       // No key set -> the launcher prompts for it; answering dirties stdin.
-      respondTo: [{ match: /cle openrouter/i, send: 'or-secret\r' }],
+      respondTo: [{ match: /openrouter key now/i, send: 'or-secret\r' }],
       settleMs: 300,
       until: () => existsSync(claudeLog),
       timeoutMs: 20_000,
@@ -46,7 +46,7 @@ test('claude inherits an interactive TTY after a readline prompt', async (t) => 
 // Full TUI flow: picker -> in-Ink key prompt -> launch. The key prompt MUST be
 // an Ink dialog: a readline prompt after an Ink teardown loses keystrokes on
 // Windows (cancelled raw console read), which used to strand the user on
-// "Colle ta cle" with a dead keyboard.
+// "Paste your key" with a dead keyboard.
 test('TUI hub: pick openrouter, enter key in Ink, claude launches', async (t) => {
   const dataDir = makeTempDir('nexus-e2e-tui-');
   const binDir = makeTempDir('nexus-e2e-bin-');
@@ -65,14 +65,14 @@ test('TUI hub: pick openrouter, enter key in Ink, claude launches', async (t) =>
       extraEnv: { NEXUS_SWITCH_HOME: catalogDir, NEXUS_E2E_CLAUDE_LOG: claudeLog },
       respondTo: [
         // Single-provider list -> select OpenRouter.
-        { match: /choisis ta source/, send: '\r' },
+        { match: /pick your model source/, send: '\r' },
         // Model picker -> take the first model. Match the footer, not the
         // header: Ink inserts color codes between adjacent <Text> nodes.
-        { match: /⏎ lancer/, send: '\r' },
+        { match: /⏎ launch/, send: '\r' },
         // In-Ink key prompt: Ink treats a multi-character paste as one input
         // chunk, so the Enter must be a separate write (the prompt masks the
         // key as "(9)" once all nine characters are in).
-        { match: /Cle API openrouter absente/, send: 'or-secret' },
+        { match: /openrouter API key missing/, send: 'or-secret' },
         { match: /\(9\)/, send: '\r' },
       ],
       settleMs: 300,
@@ -112,7 +112,7 @@ test('typed input reaches claude right after launch (no stolen first keystrokes)
       extraEnv: { NEXUS_E2E_CLAUDE_LOG: claudeLog, NEXUS_E2E_CLAUDE_READ: '1' },
       respondTo: [
         // The key prompt makes the launcher read stdin first — the dirtiest path.
-        { match: /cle openrouter/i, send: 'or-secret\r' },
+        { match: /openrouter key now/i, send: 'or-secret\r' },
         { match: /CLAUDE_STUB_READY/, send: 'hello claude\r' },
       ],
       settleMs: 300,

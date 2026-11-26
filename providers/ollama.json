@@ -2,7 +2,7 @@
   "type": "ollama",
   "name": "Ollama",
   "default": "minimax-m3:cloud",
-  "setup": "Modeles locaux: ollama pull <id> (gratuit, pas de compte). Modeles :cloud: ollama signin requis (ollama.com) — certains sont GRATUITS avec quota (reset 5h + hebdo, 1 concurrent), d'autres exigent un ABONNEMENT Pro 20$/mois ou Max 100$/mois AVANT usage (403 sinon). Verifie le badge dans le picker. Source : ollama.com/pricing, teste par API le 2026-07-02",
+  "setup": "Local models: ollama pull <id> (free, no account). :cloud models: ollama signin required (ollama.com) — some are FREE with a quota (5h + weekly reset, 1 concurrent), others need a Pro $20/month or Max $100/month SUBSCRIPTION BEFORE use (403 otherwise). Check the badge in the picker. Source: ollama.com/pricing, tested via the API on 2026-07-02",
   "models": [
     {
       "id": "glm-5.2:cloud",
@@ -11,7 +11,7 @@
       "signin_required": "ollama",
       "location": "cloud",
       "context": null,
-      "note": "flagship Z.ai, taches longues/agentiques — ABONNEMENT Pro/Max requis (ollama.com/upgrade), erreur 403 en compte gratuit"
+      "note": "Z.ai flagship, long/agentic tasks — Pro/Max SUBSCRIPTION required (ollama.com/upgrade), 403 on a free account"
     },
     {
       "id": "minimax-m3:cloud",
@@ -20,7 +20,7 @@
       "signin_required": "ollama",
       "location": "cloud",
       "context": 1000000,
-      "note": "coding/agentique frontier, 1M ctx — quota 5h+hebdo, 1 concurrent"
+      "note": "frontier coding/agentic, 1M ctx — 5h + weekly quota, 1 concurrent"
     },
     {
       "id": "deepseek-v4-pro:cloud",
@@ -29,7 +29,7 @@
       "signin_required": "ollama",
       "location": "cloud",
       "context": 1000000,
-      "note": "MoE frontier, 3 modes de reasoning, 1M ctx — ABONNEMENT Pro/Max requis (ollama.com/upgrade), erreur 403 en compte gratuit"
+      "note": "frontier MoE, 3 reasoning modes, 1M ctx — Pro/Max SUBSCRIPTION required (ollama.com/upgrade), 403 on a free account"
     },
     {
       "id": "deepseek-v4-flash:cloud",
@@ -38,7 +38,7 @@
       "signin_required": "ollama",
       "location": "cloud",
       "context": 1000000,
-      "note": "284B/13B actifs, coding/agents rapides, 1M ctx — ABONNEMENT Pro/Max requis (ollama.com/upgrade), erreur 403 en compte gratuit"
+      "note": "284B/13B active, fast coding/agents, 1M ctx — Pro/Max SUBSCRIPTION required (ollama.com/upgrade), 403 on a free account"
     },
     {
       "id": "kimi-k2.7-code:cloud",
@@ -47,7 +47,7 @@
       "signin_required": "ollama",
       "location": "cloud",
       "context": null,
-      "note": "coding Moonshot avec vision — ABONNEMENT Pro/Max requis (ollama.com/upgrade), erreur 403 en compte gratuit"
+      "note": "Moonshot coding with vision — Pro/Max SUBSCRIPTION required (ollama.com/upgrade), 403 on a free account"
     },
     {
       "id": "qwen3-coder:480b-cloud",
@@ -56,7 +56,7 @@
       "signin_required": "ollama",
       "location": "cloud",
       "context": 256000,
-      "note": "coding specialiste 480B, 256K ctx — quota 5h+hebdo, 1 concurrent"
+      "note": "480B coding specialist, 256K ctx — 5h + weekly quota, 1 concurrent"
     },
     {
       "id": "qwen3.5:cloud",
@@ -65,7 +65,7 @@
       "signin_required": "ollama",
       "location": "cloud",
       "context": 256000,
-      "note": "coding/agent polyvalent, 256K ctx — ABONNEMENT Pro/Max requis (ollama.com/upgrade), erreur 403 en compte gratuit"
+      "note": "versatile coding/agent, 256K ctx — Pro/Max SUBSCRIPTION required (ollama.com/upgrade), 403 on a free account"
     },
     {
       "id": "gpt-oss:120b-cloud",
@@ -74,7 +74,7 @@
       "signin_required": "ollama",
       "location": "cloud",
       "context": 128000,
-      "note": "reasoning OpenAI open-weight, tools, 128K ctx — quota 5h+hebdo, 1 concurrent"
+      "note": "OpenAI open-weight reasoning, tools, 128K ctx — 5h + weekly quota, 1 concurrent"
     },
     {
       "id": "qwen3-coder:30b",
@@ -84,7 +84,7 @@
       "context": 256000,
       "ram_gb": 24,
       "disk_gb": 19,
-      "note": "coding MoE 30B-A3B, tools, 256K ctx — RAM mini a contexte modere, OOM possible a 256K"
+      "note": "coding MoE 30B-A3B, tools, 256K ctx — minimal RAM at moderate context, OOM possible at 256K"
     },
     {
       "id": "glm-4.7-flash",
@@ -94,7 +94,7 @@
       "context": 198000,
       "ram_gb": 24,
       "disk_gb": 19,
-      "note": "MoE 30B-A3B 'meilleur de sa classe 30B', 198K ctx (q4_K_M) — Ollama >= 0.14.3"
+      "note": "MoE 30B-A3B 'best in the 30B class', 198K ctx (q4_K_M) — Ollama >= 0.14.3"
     },
     {
       "id": "gpt-oss:20b",
@@ -114,7 +114,7 @@
       "context": 128000,
       "ram_gb": 76,
       "disk_gb": 65,
-      "note": "reasoning lourd + tools, 128K ctx — ~76GB RAM/VRAM, machines costaudes uniquement"
+      "note": "heavy reasoning + tools, 128K ctx — ~76GB RAM/VRAM, powerful machines only"
     },
     {
       "id": "gemma4:26b",
@@ -124,7 +124,7 @@
       "context": null,
       "ram_gb": 22,
       "disk_gb": 18,
-      "note": "MoE 25.2B/3.8B actifs, tools, multimodal"
+      "note": "MoE 25.2B/3.8B active, tools, multimodal"
     },
     {
       "id": "granite4.1:8b",
@@ -134,7 +134,7 @@
       "context": 128000,
       "ram_gb": 8,
       "disk_gb": 5,
-      "note": "leger, tool use, 128K ctx — tourne sur machine modeste"
+      "note": "lightweight, tool use, 128K ctx — runs on a modest machine"
     },
     {
       "id": "qwen3.5:9b",
@@ -144,7 +144,7 @@
       "context": 256000,
       "ram_gb": 10,
       "disk_gb": 7,
-      "note": "256K ctx — bon rapport taille/contexte"
+      "note": "256K ctx — good size/context ratio"
     }
   ]
 }

@@ -5,6 +5,7 @@ import type { Provider } from '../types/provider.types.js';
 import { startGateway, type RunningGateway } from '../gateway/server.js';
 import { applyContextWindow, applyModelAliases, applyProviderEnv, resetProviderEnv } from './env.js';
 import { keyVarFor, readKey } from './keys.js';
+import { t } from '../i18n/index.js';
 
 /** A resolved way to start claude that works on POSIX and through npm's .cmd shims. */
 export type ClaudeCommand =
@@ -139,13 +140,13 @@ async function startGatewayForProvider(provider: Provider): Promise<RunningGatew
   const varName = provider.id ? keyVarFor(provider.id) : undefined;
   const apiKey = varName ? readKey(varName) : undefined;
   if (!apiKey) {
-    console.error(`Cle API absente pour ${provider.id}. Configure : nexus key set ${provider.id} <cle>`);
+    console.error(t.launch.keyMissing(provider.id ?? '?'));
     return null;
   }
   try {
     return await startGateway({ api: provider.api, apiKey });
   } catch (err) {
-    console.error(`Gateway injoignable (${provider.api.base_url}): ${err instanceof Error ? err.message : String(err)}`);
+    console.error(t.launch.gatewayFailed(provider.api.base_url, err instanceof Error ? err.message : String(err)));
     return null;
   }
 }
@@ -156,21 +157,13 @@ function warnOllamaTier(provider: Provider, model: string): void {
   // custom cloud models discovered by refreshOllama before catalog update).
   if (modelDef?.tier === 'subscription') {
     // Probed 2026-07: these 403 on a free account before any token is served.
-    console.error(
-      "Modele reserve aux abonnes Ollama Pro/Max — avec un compte gratuit, Claude Code recevra une erreur 403 'requires a subscription'.\n" +
-      "Upgrade : ollama.com/upgrade · gratuits avec quota : minimax-m3:cloud, qwen3-coder:480b-cloud, gpt-oss:120b-cloud"
-    );
+    console.error(t.launch.ollamaSubscription);
   } else if (modelDef?.signin_required ?? model.endsWith(':cloud')) {
     // Cloud models route through Ollama's hosted backend — needs a free account + CLI signin.
-    console.error(
-      "Modele Ollama cloud — compte requis (gratuit, sans CB) : ollama.com\n" +
-      "Lance `ollama signin` si ce n'est pas encore fait.\n" +
-      "Quota gratuit : reset toutes les 5h + hebdomadaire, 1 modele concurrent.\n" +
-      "Pour lever les limites : Pro 20$/mois · Max 100$/mois -> ollama.com/pricing"
-    );
+    console.error(t.launch.ollamaCloud);
   } else {
     // Local models load fully into RAM/VRAM; large context KV cache can be many GB -> OOM.
-    console.error("Modele Ollama local : grand contexte = beaucoup de RAM/VRAM. Si 'out of memory' -> bascule sur un modele :cloud, ou baisse OLLAMA_CONTEXT_LENGTH (ex. 16384) et relance Ollama.");
+    console.error(t.launch.ollamaLocal);
   }
 }
 
@@ -178,10 +171,10 @@ function runOllama(model: string, rest: string[]): void {
   const args = ['launch', 'claude', '--model', model, ...(rest.length ? ['--', ...rest] : [])];
   const result = spawnSync('ollama', args, { stdio: 'inherit' });
   if (result.error) {
-    console.error(`Echec ollama : ${result.error.message}`);
+    console.error(t.launch.ollamaFailed(result.error.message));
     process.exitCode = 1;
   } else if (result.status !== 0) {
-    console.error(`ollama a quitte (code ${result.status}). Le modele '${model}' existe-t-il ? -> ollama list`);
+    console.error(t.launch.ollamaExited(result.status, model));
     process.exitCode = result.status ?? 1;
   }
 }
@@ -200,7 +193,7 @@ function runClaude(rest: string[]): Promise<void> {
   return new Promise((resolve) => {
     const command = resolveClaude();
     if (!command) {
-      console.error('Echec claude : introuvable sur le PATH.');
+      console.error(t.launch.claudeNotFound);
       process.exitCode = 1;
       resolve();
       return;
@@ -214,7 +207,7 @@ function runClaude(rest: string[]): Promise<void> {
             { stdio: 'inherit', windowsVerbatimArguments: true },
           );
     child.on('error', (err) => {
-      console.error(`Echec claude : ${err.message}`);
+      console.error(t.launch.claudeFailed(err.message));
       process.exitCode = 1;
       resolve();
     });
@@ -233,11 +226,7 @@ function runClaude(rest: string[]): Promise<void> {
  */
 export function claudeArgs(provider: Provider, rest: string[]): string[] {
   if (!provider.bare || rest.includes('--bare') || process.env.NEXUS_FULL_PROMPT === '1') return rest;
-  console.error(
-    `${provider.name} : mode reduit (--bare, sans CLAUDE.md/MCP/hooks), le quota gratuit ne porte pas le prompt complet.
-` +
-      'Palier payant ? NEXUS_FULL_PROMPT=1 pour le desactiver.',
-  );
+  console.error(t.launch.bare(provider.name));
   return ['--bare', ...rest];
 }
 

@@ -1,5 +1,6 @@
 import { Box, Text, useStdout } from 'ink';
 import { availableUpdate, CURRENT_VERSION } from '../core/update.js';
+import { t } from '../i18n/index.js';
 
 const VERSION = CURRENT_VERSION ? `v${CURRENT_VERSION}` : '';
 
@@ -19,7 +20,7 @@ export function Header() {
   const tagline = cols >= 72 ? '  ·  AI model router · HexaNexus' : '';
   const left = `◢ NEXUS SWITCH${tagline}`;
   const update = availableUpdate();
-  const notice = update ? `  ↑ ${update} dispo · nexus update` : '';
+  const notice = update ? t.header.update(update) : '';
   const right = `${VERSION}${notice}`;
   const gap = Math.max(2, cols - 2 - left.length - right.length);
 

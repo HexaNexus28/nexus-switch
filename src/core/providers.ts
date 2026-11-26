@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Provider, ProviderType } from '../types/provider.types.js';
+import { t } from '../i18n/index.js';
 
 const VALID_TYPES: readonly ProviderType[] = ['openrouter', 'gateway', 'ollama', 'anthropic'];
 
@@ -75,7 +76,7 @@ export function loadAllProviders(): Provider[] {
       loaded.push(loadProvider(name));
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
-      console.error(`Provider ignore (catalogue invalide) : ${reason}`);
+      console.error(t.catalog.invalidProvider(reason));
     }
   }
   return loaded;

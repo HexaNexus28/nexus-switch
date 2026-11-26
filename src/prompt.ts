@@ -3,6 +3,7 @@ import { createInterface } from 'node:readline/promises';
 import type { Provider } from './types/provider.types.js';
 import { keyVarFor, readKey, setKey } from './core/keys.js';
 import { claudeExists, runNpm } from './core/launch.js';
+import { t } from './i18n/index.js';
 
 /**
  * Ensure the `claude` CLI is available. If absent, offer an opt-in npm install
@@ -11,16 +12,16 @@ import { claudeExists, runNpm } from './core/launch.js';
  */
 export async function ensureClaude(): Promise<boolean> {
   if (claudeExists()) return true;
-  console.error('Claude Code CLI absent. Nexus lance Claude Code, ce n’est pas un agent autonome.');
+  console.error(t.setup.claudeMissing);
   if (!process.stdin.isTTY) {
-    console.error('Install : npm i -g @anthropic-ai/claude-code');
+    console.error(t.setup.claudeInstallHint);
     return false;
   }
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const answer = (await rl.question('Installer maintenant via npm ? [o/N] ')).trim();
+  const answer = (await rl.question(t.setup.claudeInstallAsk)).trim();
   rl.close();
   if (!/^[oy]/i.test(answer)) {
-    console.error('Abandon. Install manuelle : npm i -g @anthropic-ai/claude-code');
+    console.error(t.setup.claudeInstallAborted);
     return false;
   }
   runNpm(['i', '-g', '@anthropic-ai/claude-code']);
@@ -67,21 +68,21 @@ export async function ensureOllamaModel(model: string): Promise<boolean> {
   if (model.endsWith(':cloud')) return true;
   const installed = ollamaInstalledModels();
   if (installed === null || ollamaHasModel(model, installed)) return true;
-  console.error(`Modele Ollama '${model}' non installe localement.`);
+  console.error(t.setup.ollamaMissing(model));
   if (!process.stdin.isTTY) {
-    console.error(`Telecharge-le : ollama pull ${model}`);
+    console.error(t.setup.ollamaPullHint(model));
     return false;
   }
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const answer = (await rl.question(`Telecharger maintenant via 'ollama pull ${model}' ? Peut etre volumineux (plusieurs Go). [o/N] `)).trim();
+  const answer = (await rl.question(t.setup.ollamaPullAsk(model))).trim();
   rl.close();
   if (!/^[oy]/i.test(answer)) {
-    console.error(`Abandon. Telecharge-le : ollama pull ${model}`);
+    console.error(t.setup.ollamaPullAborted(model));
     return false;
   }
   const pull = spawnSync('ollama', ['pull', model], { stdio: 'inherit' });
   if (pull.status !== 0) {
-    console.error(`Echec du pull de '${model}'.`);
+    console.error(t.setup.ollamaPullFailed(model));
     return false;
   }
   return true;
@@ -99,19 +100,19 @@ export async function ensureProviderKey(provider: Provider): Promise<boolean> {
   const varName = provider.id ? keyVarFor(provider.id) : undefined;
   if (!varName) return true; // ollama / anthropic-native: no nexus-managed key
   if (readKey(varName)) return true;
-  console.error(`Cle API absente pour ${provider.id} (${varName}).`);
+  console.error(t.setup.keyMissing(provider.id ?? '?', varName));
   if (!process.stdin.isTTY) {
-    console.error(`Configure-la : nexus key set ${provider.id} <cle>`);
+    console.error(t.setup.keySetHint(provider.id ?? '?'));
     return false;
   }
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const answer = (await rl.question(`Colle ta cle ${provider.id} maintenant (Entree pour annuler) : `)).trim();
+  const answer = (await rl.question(t.setup.keyAsk(provider.id ?? '?'))).trim();
   rl.close();
   if (!answer) {
-    console.error(`Abandon. Configure-la : nexus key set ${provider.id} <cle>`);
+    console.error(t.setup.keyAborted(provider.id ?? '?'));
     return false;
   }
   setKey(varName, answer);
-  console.error(`${varName} enregistree dans ~/.nexus-switch.`);
+  console.error(t.setup.keySaved(varName));
   return true;
 }

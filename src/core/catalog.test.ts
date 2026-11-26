@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { refreshOpenRouter } from './catalog.js';
+import { t } from '../i18n/index.js';
 
 const model = (id: string): { id: string; name: string; tier: 'quota'; location: 'cloud' } => ({
   id,
@@ -48,7 +49,7 @@ test('refreshOpenRouter refuses an empty upstream list and leaves the file untou
     await withHome(home, async () => {
       await assert.rejects(
         refreshOpenRouter(async () => new Response(JSON.stringify({ data: [] }), { status: 200 })),
-        /liste de modeles vide/,
+        { message: t.catalog.openRouterEmpty },
       );
     });
     assert.equal(readFileSync(file, 'utf8'), original);
@@ -63,7 +64,7 @@ test('refreshOpenRouter refuses a malformed payload and leaves the file untouche
     await withHome(home, async () => {
       await assert.rejects(
         refreshOpenRouter(async () => new Response(JSON.stringify({}), { status: 200 })),
-        /liste de modeles vide/,
+        { message: t.catalog.openRouterEmpty },
       );
     });
     assert.equal(readFileSync(file, 'utf8'), original);
