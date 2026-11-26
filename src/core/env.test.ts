@@ -85,9 +85,13 @@ test('Anthropic: API key survives the universal reset via the env snapshot', () 
 test('resetProviderEnv clears stale provider overrides', () => {
   process.env.ANTHROPIC_BASE_URL = 'http://stale:4000';
   process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL = 'stale-haiku';
+  // Set by a previous gateway session in the TUI hub: must not leak into a
+  // native Anthropic session, where server-side auto-mode checks do work.
+  process.env.CLAUDE_CODE_AUTO_MODE_SERVER = '0';
   resetProviderEnv();
   assert.equal(process.env.ANTHROPIC_BASE_URL, undefined);
   assert.equal(process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL, undefined);
+  assert.equal(process.env.CLAUDE_CODE_AUTO_MODE_SERVER, undefined);
 });
 
 test.after(() => {

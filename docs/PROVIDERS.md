@@ -46,6 +46,19 @@ Claude Code renders a raw 413 as "max 32MB / images", which hides the real cause
 The gateway is created when claude starts and closed when it exits; there is no
 long-lived proxy to start/stop and no port 4000 dependency.
 
+### Auto mode behind the gateway
+
+Claude Code's auto mode now expects Anthropic's servers to run its permission
+checks inside each model request (`safeguards` in, `safeguard_results` out). A
+translating gateway can never provide them: Groq, Gemini & co. are not Anthropic
+servers. Without a hint, Claude Code holds the first checked action behind a
+billing notice. Nexus sets `CLAUDE_CODE_AUTO_MODE_SERVER=0` for gateway sessions,
+so Claude Code makes its own classifier requests — they reach the gateway and
+are served by the picked free model like any other request. Anthropic documents
+this variable as temporary
+([auto-mode classifier billing](https://code.claude.com/docs/en/auto-mode-classifier-billing)):
+re-check it when Claude Code changes.
+
 ### Fallback between gateway providers
 
 When the picked provider answers 429, 413, 502, 503, 504, 529 or cannot be

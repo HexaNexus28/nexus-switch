@@ -124,6 +124,13 @@ function applyGatewayEnv(gateway: RunningGateway, model: string): void {
   // Claude Code's background/alias requests must land on the model the gateway
   // actually serves, not on an Anthropic haiku id the upstream has never heard of.
   applyModelAliases(model);
+  // Auto mode now expects Anthropic's servers to run its permission checks
+  // (`safeguards` in, `safeguard_results` out). Groq, Gemini & co. never can, so
+  // without this Claude Code holds the first checked action behind a billing
+  // notice. 0 = use Claude Code's own classifier requests, which reach this
+  // gateway like any other request. Documented as temporary: re-check on upgrades.
+  // https://code.claude.com/docs/en/auto-mode-classifier-billing
+  process.env.CLAUDE_CODE_AUTO_MODE_SERVER = '0';
   if (!/(?:^|\/)claude-/.test(model)) {
     process.env.MAX_THINKING_TOKENS = '0';
     process.env.CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING = '1';
