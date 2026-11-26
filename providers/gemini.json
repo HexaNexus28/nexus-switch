@@ -2,7 +2,13 @@
   "type": "gateway",
   "name": "Google Gemini",
   "default": "gemini/gemini-2.5-flash",
-  "setup": "nexus key set gemini <cle> (aistudio.google.com). Compte Google requis, sans CB. Tier gratuit sur 2.5/3-flash ; tarifs ci-dessous au-dela. Source : ai.google.dev/gemini-api/docs/models + /pricing",
+  "fallback_order": 2,
+  "setup": "nexus key set gemini <key> (aistudio.google.com). Google account required, no card. Free tier on 2.5/3-flash; prices below beyond it. Source: ai.google.dev/gemini-api/docs/models + /pricing",
+  "data_policy": {
+    "summary": "Free tier: Google may use your prompts and code to improve its products, and human reviewers may read them. Not in the EEA, UK or Switzerland, where paid-tier terms apply.",
+    "source": "https://aistudio.google.com/docs/terms",
+    "checked": "2026-11-26"
+  },
   "api": {
     "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
     "model_prefix": "gemini/"
@@ -17,7 +23,8 @@
       "context": 1048576,
       "price_in": 1.25,
       "price_out": 10,
-      "note": "coding/reasoning complexe, tools, 1M ctx — compte Google requis, tier gratuit limité"
+      "note": "complex coding/reasoning, tools, 1M ctx — Google account required, limited free tier",
+      "class": "large"
     },
     {
       "id": "gemini/gemini-2.5-flash",
@@ -28,7 +35,8 @@
       "context": 1048576,
       "price_in": 0.3,
       "price_out": 2.5,
-      "note": "rapide, polyvalent, tools, 1M ctx — compte Google requis, tier gratuit généreux"
+      "note": "fast, versatile, tools, 1M ctx — Google account required, generous free tier",
+      "class": "large"
     },
     {
       "id": "gemini/gemini-2.5-flash-lite",
@@ -39,7 +47,8 @@
       "context": 1048576,
       "price_in": 0.1,
       "price_out": 0.4,
-      "note": "ultra cheap/rapide, tools, 1M ctx — compte Google requis"
+      "note": "ultra cheap/fast, tools, 1M ctx — Google account required",
+      "class": "fast"
     },
     {
       "id": "gemini/gemini-3-flash-preview",
@@ -50,7 +59,8 @@
       "context": null,
       "price_in": 0.5,
       "price_out": 3,
-      "note": "preview, intelligence frontier rapide, tools — compte Google requis"
+      "note": "preview, fast frontier intelligence, tools — Google account required",
+      "class": "large"
     },
     {
       "id": "gemini/gemini-3.1-flash-lite",
@@ -61,7 +71,8 @@
       "context": null,
       "price_in": 0.25,
       "price_out": 1.5,
-      "note": "cheap/rapide, tools — compte Google requis"
+      "note": "cheap/fast, tools — Google account required",
+      "class": "fast"
     },
     {
       "id": "gemini/gemini-3.5-flash",
@@ -71,7 +82,7 @@
       "context": null,
       "price_in": 1.5,
       "price_out": 9,
-      "note": "PAYANT — flash haut de gamme, tools"
+      "note": "PAID — high-end flash, tools"
     },
     {
       "id": "gemini/gemini-3.1-pro-preview",
@@ -81,7 +92,7 @@
       "context": null,
       "price_in": 2,
       "price_out": 12,
-      "note": "PAYANT — reasoning de pointe (prix <=200k tokens)"
+      "note": "PAID — top-tier reasoning (price for <=200k tokens)"
     }
   ]
 }

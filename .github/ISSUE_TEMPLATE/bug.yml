@@ -1,0 +1,23 @@
+name: Bug report
+description: Something does not work. Tip — run `nexus report` (or press `r` in the TUI) to pre-fill the diagnostic.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, what you got instead (exact error text if any).
+      placeholder: |
+        1. Ran `nexus groq`
+        2. Pasted my key when asked
+        3. Next launch asked for the key again
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostic
+    attributes:
+      label: Diagnostic
+      description: Filled in by `nexus report`. API keys and your user folder are masked — check before submitting.
+      render: text
+    validations:
+      required: false

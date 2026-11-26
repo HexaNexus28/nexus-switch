@@ -1,8 +1,8 @@
 {
   "type": "anthropic",
-  "name": "Anthropic (natif)",
+  "name": "Anthropic (native)",
   "default": "claude-sonnet-4-6",
-  "setup": "Utilise ton abonnement Claude ou ANTHROPIC_API_KEY. Modeles payants. Source : platform.claude.com/docs/en/about-claude/models",
+  "setup": "Uses your Claude subscription or ANTHROPIC_API_KEY. Paid models. Source: platform.claude.com/docs/en/about-claude/models",
   "env": {
     "ANTHROPIC_BASE_URL": "",
     "ANTHROPIC_AUTH_TOKEN": "",
@@ -17,7 +17,7 @@
       "context": 1000000,
       "price_in": 5,
       "price_out": 25,
-      "note": "le plus capable Opus : reasoning complexe, coding agentique long-horizon, 1M ctx, sortie 128k"
+      "note": "most capable Opus: complex reasoning, long-horizon agentic coding, 1M ctx, 128k output"
     },
     {
       "id": "claude-sonnet-4-6",
@@ -27,7 +27,7 @@
       "context": 1000000,
       "price_in": 3,
       "price_out": 15,
-      "note": "meilleur compromis vitesse/intelligence, extended thinking, 1M ctx"
+      "note": "best speed/intelligence trade-off, extended thinking, 1M ctx"
     },
     {
       "id": "claude-haiku-4-5",
@@ -37,7 +37,7 @@
       "context": 200000,
       "price_in": 1,
       "price_out": 5,
-      "note": "le plus rapide, intelligence quasi-frontier, 200K ctx"
+      "note": "fastest, near-frontier intelligence, 200K ctx"
     },
     {
       "id": "claude-fable-5",
@@ -47,7 +47,7 @@
       "context": 1000000,
       "price_in": 10,
       "price_out": 50,
-      "note": "modele le plus capable d'Anthropic, reasoning/agentique extreme, 1M ctx"
+      "note": "Anthropic's most capable model, extreme reasoning/agentic work, 1M ctx"
     }
   ]
 }

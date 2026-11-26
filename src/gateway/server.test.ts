@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import type { GatewayRoute } from '../types/gateway.types.js';
 import { startGateway, type RunningGateway } from './server.js';
 
 // --- Mock OpenAI-compatible upstream -----------------------------------------
@@ -84,8 +85,15 @@ let gateway: RunningGateway;
 test.before(async () => {
   await upstreamListen();
   gateway = await startGateway({
-    api: { base_url: upstreamUrl, model_prefix: 'groq/' },
-    apiKey: 'sk-provider-secret',
+    routes: [
+      {
+        providerId: 'groq',
+        providerName: 'Groq',
+        api: { base_url: upstreamUrl, model_prefix: 'groq/' },
+        apiKey: 'sk-provider-secret',
+        model: 'groq/qwen/qwen3.6-27b',
+      },
+    ],
   });
 });
 
@@ -94,12 +102,17 @@ test.after(async () => {
   upstream.close();
 });
 
-function callGateway(path: string, body: Record<string, unknown>, token?: string): Promise<Response> {
-  return fetch(`${gateway.baseUrl}${path}`, {
+function callGateway(
+  path: string,
+  body: Record<string, unknown>,
+  token?: string,
+  target: RunningGateway = gateway,
+): Promise<Response> {
+  return fetch(`${target.baseUrl}${path}`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      authorization: `Bearer ${token ?? gateway.token}`,
+      authorization: `Bearer ${token ?? target.token}`,
     },
     body: JSON.stringify(body),
   });
@@ -214,4 +227,144 @@ test('unknown endpoint -> Anthropic-shaped 404', async () => {
   assert.equal(res.status, 404);
   const body = (await res.json()) as { error: { type: string } };
   assert.equal(body.error.type, 'not_found_error');
+});
+
+// --- Fallback between providers ------------------------------------------------
+// A second upstream that fails on demand; the healthy mock above is the fallback.
+
+let flaky: Server;
+let flakyUrl: string;
+let flakyHits = 0;
+let flakyStatus = 429;
+
+function flakyListen(): Promise<void> {
+  flaky = createServer((req, res) => {
+    req.resume();
+    req.on('end', () => {
+      flakyHits += 1;
+      res.writeHead(flakyStatus, { 'content-type': 'application/json', 'retry-after': '30' });
+      res.end(JSON.stringify({ error: { message: `flaky ${flakyStatus}` } }));
+    });
+  });
+  return new Promise((resolve) => {
+    flaky.listen(0, '127.0.0.1', () => {
+      flakyUrl = `http://127.0.0.1:${(flaky.address() as AddressInfo).port}`;
+      resolve();
+    });
+  });
+}
+
+const flakyRoute = (): GatewayRoute => ({
+  providerId: 'flaky',
+  providerName: 'Flaky',
+  api: { base_url: flakyUrl, model_prefix: 'flaky/' },
+  apiKey: 'sk-flaky',
+  model: 'flaky/big',
+});
+
+const healthyRoute = (): GatewayRoute => ({
+  providerId: 'cerebras',
+  providerName: 'Cerebras',
+  api: { base_url: upstreamUrl, model_prefix: 'cerebras/' },
+  apiKey: 'sk-cerebras',
+  model: 'cerebras/gpt-oss-120b',
+});
+
+async function withGateway(routes: GatewayRoute[], run: (g: RunningGateway) => Promise<void>): Promise<void> {
+  const g = await startGateway({ routes });
+  try {
+    await run(g);
+  } finally {
+    await g.close();
+  }
+}
+
+test.before(flakyListen);
+test.after(() => flaky.close());
+
+test('fallback: a 429 is served by the next provider, with its own model and key', async () => {
+  mode = 'json';
+  flakyStatus = 429;
+  flakyHits = 0;
+  captured = [];
+  await withGateway([flakyRoute(), healthyRoute()], async (g) => {
+    const res = await callGateway('/v1/messages', request({ model: 'flaky/big' }), undefined, g);
+    assert.equal(res.status, 200);
+    assert.equal(flakyHits, 1);
+    assert.equal(captured[0]!.auth, 'Bearer sk-cerebras');
+    assert.equal(captured[0]!.body.model, 'gpt-oss-120b');
+    const msg = (await res.json()) as { model: string };
+    assert.equal(msg.model, 'flaky/big'); // claude keeps seeing the model it asked for
+    assert.deepEqual(g.fallbacks(), [{ from: 'Flaky', to: 'Cerebras', status: 429 }]);
+    assert.equal(g.quotaHits(), 1); // counted on the picked provider
+
+    // Retry-After: 30 -> the primary is skipped while it cools down.
+    const again = await callGateway('/v1/messages', request({ model: 'flaky/big' }), undefined, g);
+    assert.equal(again.status, 200);
+    assert.equal(flakyHits, 1);
+  });
+});
+
+test('fallback: a 413 (request too big for the free tier) skips once, without cooldown', async () => {
+  mode = 'json';
+  flakyStatus = 413;
+  flakyHits = 0;
+  await withGateway([flakyRoute(), healthyRoute()], async (g) => {
+    assert.equal((await callGateway('/v1/messages', request({ model: 'flaky/big' }), undefined, g)).status, 200);
+    assert.equal((await callGateway('/v1/messages', request({ model: 'flaky/big' }), undefined, g)).status, 200);
+    assert.equal(flakyHits, 2); // primary tried again: smaller requests may still fit
+  });
+});
+
+test('fallback: a client error (400) is returned as is, never retried elsewhere', async () => {
+  flakyStatus = 400;
+  captured = [];
+  await withGateway([flakyRoute(), healthyRoute()], async (g) => {
+    const res = await callGateway('/v1/messages', request({ model: 'flaky/big' }), undefined, g);
+    assert.equal(res.status, 400);
+    assert.equal(captured.length, 0);
+    assert.deepEqual(g.fallbacks(), []);
+  });
+});
+
+test('fallback: every route out of quota -> the last real error reaches claude', async () => {
+  flakyStatus = 429;
+  await withGateway([flakyRoute(), { ...flakyRoute(), providerId: 'flaky2', providerName: 'Flaky 2' }], async (g) => {
+    const res = await callGateway('/v1/messages', request({ model: 'flaky/big' }), undefined, g);
+    assert.equal(res.status, 429);
+    const body = (await res.json()) as { error: { type: string; message: string } };
+    assert.equal(body.error.type, 'rate_limit_error');
+  });
+});
+
+test('fallback: an unreachable provider falls back too', async () => {
+  mode = 'json';
+  const dead: GatewayRoute = { ...flakyRoute(), providerId: 'dead', api: { base_url: 'http://127.0.0.1:9', model_prefix: 'flaky/' } };
+  await withGateway([dead, healthyRoute()], async (g) => {
+    const res = await callGateway('/v1/messages', request({ model: 'flaky/big' }), undefined, g);
+    assert.equal(res.status, 200);
+    assert.equal(g.fallbacks()[0]!.status, 0);
+  });
+});
+
+test('fallback: never switches once the stream has started', async () => {
+  mode = 'abort';
+  flakyHits = 0;
+  await withGateway([healthyRoute(), flakyRoute()], async (g) => {
+    const res = await callGateway('/v1/messages', request({ model: 'cerebras/gpt-oss-120b', stream: true }), undefined, g);
+    const text = await res.text();
+    assert.match(text, /event: error/);
+    assert.equal(flakyHits, 0);
+  });
+  mode = 'json';
+});
+
+test('quota hits are counted on the picked provider even without fallback', async () => {
+  flakyStatus = 429;
+  await withGateway([flakyRoute()], async (g) => {
+    const res = await callGateway('/v1/messages', request({ model: 'flaky/big' }), undefined, g);
+    assert.equal(res.status, 429);
+    assert.equal(g.quotaHits(), 1);
+    assert.deepEqual(g.fallbacks(), []);
+  });
 });

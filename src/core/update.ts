@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { PACKAGE } from './package-info.js';
 import { nexusDataDir } from './secrets.js';
 
 // "A newer nexus exists" notice. Notify, never self-install: `npm i -g` fails on
@@ -18,14 +18,7 @@ interface UpdateCache {
 }
 
 /** Installed version, from the package.json shipped next to dist/. */
-export const CURRENT_VERSION: string = (() => {
-  try {
-    const pkg = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'package.json');
-    return (JSON.parse(readFileSync(pkg, 'utf8')) as { version: string }).version;
-  } catch {
-    return '';
-  }
-})();
+export const CURRENT_VERSION: string = PACKAGE.version;
 
 function cachePath(): string {
   return join(nexusDataDir(), 'update-check.json');

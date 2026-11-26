@@ -2,7 +2,13 @@
   "type": "gateway",
   "name": "NVIDIA NIM",
   "default": "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b",
-  "setup": "nexus key set nvidia <cle> (build.nvidia.com). Compte requis, sans CB. Tier gratuit ~40 req/min + 1000 credits a l'inscription. Source : build.nvidia.com/models. Ids verifies contre l'API live le 2026-10-08",
+  "fallback_order": 3,
+  "setup": "nexus key set nvidia <key> (build.nvidia.com). Account required, no card. Free tier ~40 req/min + 1000 credits on sign-up. Source: build.nvidia.com/models. Ids checked against the live API on 2026-10-08",
+  "data_policy": {
+    "summary": "Trial only, not for production. Content may be used, without identifying you, to improve NVIDIA models.",
+    "source": "https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf",
+    "checked": "2026-11-26"
+  },
   "api": {
     "base_url": "https://integrate.api.nvidia.com/v1",
     "model_prefix": "nvidia_nim/"
@@ -17,7 +23,8 @@
       "context": 1000000,
       "price_in": null,
       "price_out": null,
-      "note": "reasoning haut debit + agents longs, 1M ctx, tools — compte requis (build.nvidia.com)"
+      "note": "high-throughput reasoning + long-running agents, 1M ctx, tools — account required (build.nvidia.com)",
+      "class": "large"
     },
     {
       "id": "nvidia_nim/nvidia/nemotron-3-super-120b-a12b",
@@ -28,7 +35,8 @@
       "context": null,
       "price_in": null,
       "price_out": null,
-      "note": "flagship entreprise, function calling — compte requis"
+      "note": "enterprise flagship, function calling — account required",
+      "class": "large"
     },
     {
       "id": "nvidia_nim/deepseek-ai/deepseek-v4.1-flash",
@@ -39,7 +47,8 @@
       "context": 1000000,
       "price_in": null,
       "price_out": null,
-      "note": "MoE coding rapide, 1M ctx — compte requis"
+      "note": "fast coding MoE, 1M ctx — account required",
+      "class": "large"
     },
     {
       "id": "nvidia_nim/moonshotai/kimi-k3",
@@ -50,7 +59,8 @@
       "context": null,
       "price_in": null,
       "price_out": null,
-      "note": "agentic coding long contexte, tools — compte requis"
+      "note": "long-context agentic coding, tools — account required",
+      "class": "large"
     },
     {
       "id": "nvidia_nim/z-ai/glm-5.3",
@@ -61,7 +71,8 @@
       "context": null,
       "price_in": null,
       "price_out": null,
-      "note": "coding agentique, tools — compte requis"
+      "note": "agentic coding, tools — account required",
+      "class": "large"
     }
   ]
 }

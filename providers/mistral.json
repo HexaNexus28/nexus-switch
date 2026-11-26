@@ -2,7 +2,13 @@
   "type": "gateway",
   "name": "Mistral AI",
   "default": "mistral/devstral-2",
-  "setup": "nexus key set mistral <cle> (console.mistral.ai). Compte requis, sans CB. Tier gratuit experimental avec restrictions. Source : mistral.ai/pricing",
+  "fallback_order": 4,
+  "setup": "nexus key set mistral <key> (console.mistral.ai). Account required, no card. Experimental free tier with restrictions. Source: mistral.ai/pricing",
+  "data_policy": {
+    "summary": "Free plan: used to train Mistral models by default. Turn it off in admin.mistral.ai > Privacy.",
+    "source": "https://help.mistral.ai/en/articles/455207-can-i-opt-out-of-my-input-or-output-data-being-used-for-training",
+    "checked": "2026-11-26"
+  },
   "api": {
     "base_url": "https://api.mistral.ai/v1",
     "model_prefix": "mistral/"
@@ -17,7 +23,8 @@
       "context": null,
       "price_in": 0.4,
       "price_out": 2,
-      "note": "coding agentique — compte requis (console.mistral.ai)"
+      "note": "agentic coding — account required (console.mistral.ai)",
+      "class": "large"
     },
     {
       "id": "mistral/codestral",
@@ -28,7 +35,8 @@
       "context": null,
       "price_in": 0.3,
       "price_out": 0.9,
-      "note": "coding/completion rapide — compte requis"
+      "note": "fast coding/completion — account required",
+      "class": "fast"
     },
     {
       "id": "mistral/mistral-large-3",
@@ -39,7 +47,8 @@
       "context": null,
       "price_in": 0.5,
       "price_out": 1.5,
-      "note": "generaliste frontier — compte requis"
+      "note": "frontier generalist — account required",
+      "class": "large"
     },
     {
       "id": "mistral/mistral-medium-3.5",
@@ -50,7 +59,8 @@
       "context": null,
       "price_in": 1.5,
       "price_out": 7.5,
-      "note": "generaliste haut de gamme — compte requis"
+      "note": "high-end generalist — account required",
+      "class": "large"
     },
     {
       "id": "mistral/mistral-small-4",
@@ -61,7 +71,8 @@
       "context": null,
       "price_in": 0.1,
       "price_out": 0.3,
-      "note": "rapide/cheap, polyvalent — compte requis"
+      "note": "fast/cheap, versatile — account required",
+      "class": "fast"
     },
     {
       "id": "mistral/ministral-3-14b",
@@ -72,7 +83,8 @@
       "context": null,
       "price_in": 0.2,
       "price_out": 0.2,
-      "note": "edge/petit, tools — compte requis"
+      "note": "edge/small, tools — account required",
+      "class": "fast"
     },
     {
       "id": "mistral/ministral-3-8b",
@@ -83,7 +95,8 @@
       "context": null,
       "price_in": 0.15,
       "price_out": 0.15,
-      "note": "edge/petit, tools — compte requis"
+      "note": "edge/small, tools — account required",
+      "class": "fast"
     },
     {
       "id": "mistral/ministral-3-3b",
@@ -94,7 +107,7 @@
       "context": null,
       "price_in": 0.1,
       "price_out": 0.1,
-      "note": "edge ultra leger, tools — compte requis"
+      "note": "ultra-light edge, tools — account required"
     }
   ]
 }

@@ -3,7 +3,14 @@
   "name": "Groq",
   "bare": true,
   "default": "groq/openai/gpt-oss-120b",
-  "setup": "nexus key set groq <cle> (console.groq.com). Compte requis, sans CB. Tier gratuit : 8000 tokens/min par modele (mesure 2026-11-25), trop peu pour le prompt complet de Claude Code (24-37k) -> lance en --bare ; NEXUS_FULL_PROMPT=1 en Dev Tier. Source : console.groq.com/docs/models, groq.com/pricing. Ids verifies contre l'API live le 2026-10-08",
+  "fallback_order": 5,
+  "max_request_tokens": 8000,
+  "setup": "nexus key set groq <key> (console.groq.com). Account required, no card. Free tier: 8000 tokens/min per model (measured 2026-11-25), too little for Claude Code's full prompt (24-37k) -> launches with --bare; NEXUS_FULL_PROMPT=1 on Dev Tier. Source: console.groq.com/docs/models, groq.com/pricing. Ids checked against the live API on 2026-10-08",
+  "data_policy": {
+    "summary": "Not retained by default; logs kept up to 30 days for abuse checks. Training not addressed on its data page.",
+    "source": "https://console.groq.com/docs/your-data",
+    "checked": "2026-11-26"
+  },
   "api": {
     "base_url": "https://api.groq.com/openai/v1",
     "model_prefix": "groq/"
@@ -18,7 +25,8 @@
       "context": 131072,
       "price_in": 0.15,
       "price_out": 0.6,
-      "note": "production, reasoning + tools — compte gratuit requis (console.groq.com)"
+      "note": "production, reasoning + tools — free account required (console.groq.com)",
+      "class": "large"
     },
     {
       "id": "groq/openai/gpt-oss-20b",
@@ -29,7 +37,8 @@
       "context": 131072,
       "price_in": 0.075,
       "price_out": 0.3,
-      "note": "production, reasoning rapide — compte gratuit requis"
+      "note": "production, fast reasoning — free account required",
+      "class": "fast"
     },
     {
       "id": "groq/qwen/qwen3.8-27b",
@@ -40,7 +49,8 @@
       "context": 131072,
       "price_in": null,
       "price_out": null,
-      "note": "coding/reasoning recent, tools — compte gratuit requis"
+      "note": "recent coding/reasoning, tools — free account required",
+      "class": "large"
     }
   ]
 }

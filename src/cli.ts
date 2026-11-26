@@ -1,12 +1,16 @@
 import { refreshOllama, refreshOpenRouter } from './core/catalog.js';
+import { canFallBack, fallbackPool } from './core/chain.js';
+import { readConfig, writeConfig, type FallbackSetting } from './core/config.js';
 import { gatewayKeyStatus, openRouterCredits } from './core/credits.js';
 import { runDoctor } from './core/doctor.js';
 import { deleteKey, KEY_VARS, keyVarFor, readKey, setKey } from './core/keys.js';
 import { launch, runNpm } from './core/launch.js';
-import { listProviders, loadProvider } from './core/providers.js';
+import { listProviders, loadAllProviders, loadProvider } from './core/providers.js';
+import { runReport } from './core/report.js';
 import { migrateLegacyEnv, purgeLegacyEnv, purgeLegacyLitellm, wipeSecretStore } from './core/secrets.js';
 import { availableUpdate, refreshUpdateCache } from './core/update.js';
-import { ensureClaude, ensureOllamaModel, ensureProviderKey } from './prompt.js';
+import { askYesNo, ensureClaude, ensureOllamaModel, ensureProviderKey } from './prompt.js';
+import { t } from './i18n/index.js';
 
 function mark(ok: boolean): string {
   return ok ? 'OK' : 'KO';
@@ -18,7 +22,7 @@ async function cmdDoctor(): Promise<void> {
   console.log(`${mark(report.claude)}  Claude Code CLI${claudeNote}`);
   for (const k of report.keys) {
     const status = !k.present ? '..' : k.valid === false ? 'KO' : 'OK';
-    const note = k.valid === true ? 'valide' : k.valid === false ? 'cle rejetee' : k.present ? 'presente' : 'absente';
+    const note = k.valid === true ? t.cli.keyValid : k.valid === false ? t.cli.keyRejected : k.present ? t.cli.keyPresent : t.cli.keyAbsent;
     console.log(`${status}  ${k.provider.padEnd(10)} ${k.varName.padEnd(20)} ${note}`);
   }
 }
@@ -26,12 +30,12 @@ async function cmdDoctor(): Promise<void> {
 async function cmdRefresh(): Promise<void> {
   const { kept, removed } = await refreshOpenRouter();
   const tail = removed.length ? ` : ${removed.join(', ')}` : '';
-  console.log(`OpenRouter: ${kept} modeles conserves, ${removed.length} retires${tail}`);
+  console.log(t.cli.refreshOpenRouter(kept, removed.length, tail));
   try {
     const { models } = refreshOllama();
-    console.log(`Ollama    : ${models} modeles (depuis ollama list)`);
+    console.log(t.cli.refreshOllama(models));
   } catch (err) {
-    console.log(`Ollama    : ${err instanceof Error ? err.message : 'ignore'}`);
+    console.log(`Ollama    : ${err instanceof Error ? err.message : t.cli.skipped}`);
   }
 }
 
@@ -47,32 +51,98 @@ function cmdKey(args: string[]): void {
   if (sub === 'set' && provider && value) {
     const varName = keyVarFor(provider);
     if (!varName) {
-      console.error(`Provider non supporte : ${provider}`);
+      console.error(t.cli.unsupportedProvider(provider));
       process.exitCode = 1;
       return;
     }
     setKey(varName, value);
-    console.log(`${varName} enregistree dans ~/.nexus-switch.`);
+    console.log(t.setup.keySaved(varName));
     return;
   }
   if (sub === 'delete' && provider) {
     const varName = keyVarFor(provider);
     if (!varName) {
-      console.error(`Provider non supporte : ${provider}`);
+      console.error(t.cli.unsupportedProvider(provider));
       process.exitCode = 1;
       return;
     }
     deleteKey(varName);
-    console.log(`${varName} supprimee de ~/.nexus-switch.`);
+    console.log(t.cli.keyDeleted(varName));
     return;
   }
-  console.error('Usage: nexus key set <provider> <cle> | nexus key list | nexus key delete <provider>');
+  console.error(t.cli.keyUsage);
   process.exitCode = 1;
+}
+
+/**
+ * `nexus chain`: fallback is off until the user turns it on HERE, after seeing
+ * where their code would go and what each provider does with it.
+ */
+async function cmdChain(args: string[]): Promise<void> {
+  const yes = args.includes('--yes');
+  const [sub, ...ids] = args.filter((a) => a !== '--yes');
+  const config = readConfig();
+  if (sub === undefined) {
+    const fallback = config.fallback;
+    console.log(
+      !fallback
+        ? t.fallback.showOff
+        : fallback.mode === 'auto'
+          ? t.fallback.showAuto
+          : t.fallback.showManual(fallback.providers.join(' -> ')),
+    );
+    return;
+  }
+  if (sub === 'off') {
+    delete config.fallback;
+    writeConfig(config);
+    console.log(t.fallback.offSet);
+    return;
+  }
+  if ((sub !== 'auto' && sub !== 'set') || (sub === 'set' && ids.length === 0)) {
+    console.error(t.fallback.usage);
+    process.exitCode = 1;
+    return;
+  }
+  for (const id of ids) {
+    if (!listProviders().includes(id) || loadProvider(id).type !== 'gateway') {
+      console.error(t.fallback.notGateway(id));
+      process.exitCode = 1;
+      return;
+    }
+  }
+  const setting: FallbackSetting = sub === 'auto' ? { mode: 'auto' } : { mode: 'manual', providers: ids };
+  const pool = fallbackPool(loadAllProviders(), setting.mode === 'manual' ? setting.providers : undefined).filter(canFallBack);
+  if (pool.length === 0) {
+    console.error(t.fallback.noneUsable);
+    process.exitCode = 1;
+    return;
+  }
+  const width = Math.max(...pool.map((p) => p.name.length));
+  console.log(t.fallback.consentIntro);
+  for (const p of pool) {
+    const policy = p.data_policy;
+    console.log(`  ${p.name.padEnd(width)}  ${policy ? `${policy.summary} (${policy.checked})` : t.fallback.policyUnknown}`);
+  }
+  console.log(t.fallback.consentFooter);
+  if (!yes) {
+    if (!process.stdin.isTTY) {
+      console.error(t.fallback.needYes);
+      process.exitCode = 1;
+      return;
+    }
+    if (!(await askYesNo(t.fallback.confirm))) {
+      console.log(t.fallback.cancelled);
+      return;
+    }
+  }
+  writeConfig({ ...config, fallback: setting });
+  console.log(setting.mode === 'auto' ? t.fallback.autoSet : t.fallback.manualSet(setting.providers.join(' -> ')));
 }
 
 async function cmdLaunch(name: string, rest: string[]): Promise<void> {
   if (!listProviders().includes(name)) {
-    console.error(`Provider inconnu : ${name}. Disponibles : ${listProviders().join(', ')}`);
+    console.error(t.cli.unknownProvider(name, listProviders().join(', ')));
     process.exitCode = 1;
     return;
   }
@@ -98,7 +168,7 @@ async function cmdLaunch(name: string, rest: string[]): Promise<void> {
     return;
   }
   const update = availableUpdate();
-  if (update) console.error(`nexus ${update} disponible -> nexus update`);
+  if (update) console.error(t.cli.updateAvailable(update));
   void refreshUpdateCache();
   await launch(provider, model, passthrough);
 }
@@ -106,9 +176,9 @@ async function cmdLaunch(name: string, rest: string[]): Promise<void> {
 async function cmdCredits(): Promise<void> {
   console.log(`OpenRouter : ${await openRouterCredits()}`);
   for (const { provider, present } of gatewayKeyStatus()) {
-    console.log(`${provider.padEnd(10)} : ${present ? 'cle presente' : 'absente'}`);
+    console.log(`${provider.padEnd(10)} : ${present ? t.cli.creditsKeyPresent : t.cli.keyAbsent}`);
   }
-  console.log('Ollama     : local illimite · cloud quota (https://ollama.com/dashboard)');
+  console.log(t.cli.creditsOllama);
 }
 
 function cmdUpdate(): void {
@@ -121,7 +191,7 @@ function cmdUninstall(): void {
   // from the pre-store era.
   wipeSecretStore();
   for (const varName of [...Object.values(KEY_VARS), 'NEXUS_PROXY_KEY']) purgeLegacyEnv(varName);
-  console.log('Secrets et config supprimes (~/.nexus-switch + env global purge).');
+  console.log(t.cli.uninstalled);
   const status = runNpm(['rm', '-g', '@hexanexus/nexus-switch']);
   if (status !== 0) process.exitCode = status ?? 1;
 }
@@ -136,6 +206,8 @@ function cmdHelp(): void {
       '  nexus <provider> [model] [-- claude flags]',
       '  nexus doctor',
       '  nexus credits',
+      '  nexus chain [auto | set <provider>... | off]   fallback when a free quota runs out (off by default)',
+      '  nexus report                report a problem (pre-filled GitHub issue)',
       '  nexus refresh',
       '  nexus key set <provider> <key>',
       '  nexus key list',
@@ -180,8 +252,14 @@ async function main(): Promise<void> {
     case 'key':
       cmdKey(rest);
       break;
+    case 'chain':
+      await cmdChain(rest);
+      break;
     case 'credits':
       await cmdCredits();
+      break;
+    case 'report':
+      runReport();
       break;
     case 'update':
       cmdUpdate();

@@ -3,7 +3,9 @@ import { render } from 'ink';
 import type { Provider } from '../types/provider.types.js';
 import { loadAllProviders } from '../core/providers.js';
 import { launch, releaseStdin, runNpm } from '../core/launch.js';
+import { runReport } from '../core/report.js';
 import { App, type Choice, type Intent } from './App.js';
+import { t } from '../i18n/index.js';
 
 interface SessionState {
   provider: Provider | null;
@@ -49,7 +51,7 @@ async function session(providers: Provider[], state: SessionState): Promise<Inte
 export async function runTui(): Promise<void> {
   const providers = loadAllProviders();
   if (providers.length === 0) {
-    console.error('Aucun provider valide dans providers/. Corrige le catalogue puis relance.');
+    console.error(t.providers.noneFatal);
     process.exitCode = 1;
     return;
   }
@@ -57,20 +59,24 @@ export async function runTui(): Promise<void> {
   for (;;) {
     const intent = await session(providers, state);
     if (!intent) return;
+    if (intent.kind === 'report') {
+      runReport();
+      continue;
+    }
     const { choice } = intent;
     state.provider = choice.provider;
     state.retryChoice = null;
     switch (intent.kind) {
       case 'install': {
         const status = runNpm(['i', '-g', '@anthropic-ai/claude-code']);
-        if (status !== 0) console.error("Echec de l'installation de Claude Code.");
+        if (status !== 0) console.error(t.setup.claudeInstallFailed);
         state.retryChoice = choice; // re-check the same choice, then launch
         break;
       }
       case 'pull': {
         const pull = spawnSync('ollama', ['pull', choice.model], { stdio: 'inherit' });
         if (pull.error || (pull.status !== null && pull.status !== 0)) {
-          console.error(`Echec du pull de '${choice.model}'.`);
+          console.error(t.setup.ollamaPullFailed(choice.model));
           break;
         }
         state.retryChoice = choice;

@@ -14,17 +14,26 @@ import { randomUUID } from 'node:crypto';
 import { appendFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { join } from 'node:path';
-import type { AnthropicMessagesRequest, GatewayApi, OpenAIChatResponse } from '../types/gateway.types.js';
+import type { AnthropicMessagesRequest, FallbackEvent, GatewayRoute, OpenAIChatResponse } from '../types/gateway.types.js';
 import { nexusDataDir } from '../core/secrets.js';
+import { candidates, cooldownMs, NETWORK_ERROR, routeKey, shouldFallback } from './router.js';
 import { createSseParser, createStreamTranslator } from './stream.js';
 import { estimateTokens, translateRequest, translateResponse } from './translate.js';
+import { t } from '../i18n/index.js';
 
 const LOOPBACK = '127.0.0.1';
 
 export interface GatewayOptions {
-  api: GatewayApi;
-  /** Provider API key, injected into upstream Authorization only. */
-  apiKey: string;
+  /** routes[0] is the provider the user picked; the rest is the fallback chain, in order. */
+  routes: GatewayRoute[];
+}
+
+/** Session state shared by every request: cooldowns and the fallbacks that happened. */
+interface SessionState {
+  cooldownUntil: Map<string, number>;
+  fallbacks: FallbackEvent[];
+  /** 429/413 answers from the picked provider — the hint to offer fallback. */
+  quotaHits: number;
 }
 
 export interface RunningGateway {
@@ -34,6 +43,10 @@ export interface RunningGateway {
   baseUrl: string;
   /** Per-session bearer token — what ANTHROPIC_AUTH_TOKEN must carry. */
   token: string;
+  /** Requests served by a fallback during this session (for the post-session summary). */
+  fallbacks(): readonly FallbackEvent[];
+  /** How many times the picked provider answered "quota exceeded" (429/413). */
+  quotaHits(): number;
   close(): Promise<void>;
 }
 
@@ -45,10 +58,6 @@ function debugLog(line: string): void {
     /* debug only — never disturb the session */
   }
 }
-
-const QUOTA_HINT =
-  'nexus : requete plus grosse que le quota tokens/minute du provider. ' +
-  'Relance avec `-- --bare` (prompt reduit), choisis un autre provider, ou passe au palier payant.';
 
 /** Upstream HTTP status -> Anthropic error type (what Claude Code knows to render/retry). */
 function errorType(status: number): string {
@@ -111,48 +120,94 @@ function upstreamModel(model: string, prefix: string): string {
   return model.startsWith(prefix) ? model.slice(prefix.length) : model;
 }
 
+/** Last upstream failure, answered to claude when every route failed. */
+interface Failure {
+  status: number;
+  message: string;
+}
+
+function sendFailure(res: ServerResponse, failure: Failure): void {
+  if (failure.status === 413) {
+    // Claude Code renders any 413 as its own "max 32MB / images" message and
+    // drops ours. A provider 413 is a token quota (Groq free tier: 8000 TPM vs
+    // ~24k for a full Claude Code prompt): retrying never helps, so answer 400.
+    sendError(res, 400, `${failure.message}\n${t.gateway.quotaHint}`);
+    return;
+  }
+  sendError(res, failure.status === NETWORK_ERROR ? 502 : failure.status, failure.message);
+}
+
+/**
+ * Try the routes in order until one answers. Switching is only possible
+ * BEFORE the response starts: once the 200 header and first SSE bytes are on
+ * the wire, a failure is reported as a stream error, never replayed elsewhere.
+ */
 async function handleMessages(
   body: AnthropicMessagesRequest,
   options: GatewayOptions,
+  session: SessionState,
   res: ServerResponse,
   clientGone: AbortSignal,
 ): Promise<void> {
-  const { request, dropped } = translateRequest(body, upstreamModel(body.model, options.api.model_prefix));
-  if (dropped.length > 0) debugLog(`dropped fields: ${dropped.join(', ')}`);
-  let upstream: Response;
-  try {
-    upstream = await fetch(`${options.api.base_url}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${options.apiKey}`,
-      },
-      body: JSON.stringify(request),
-      signal: clientGone,
-    });
-  } catch (err) {
-    if (clientGone.aborted) return; // client cancelled; nothing to answer
-    sendError(res, 502, `Provider injoignable (${options.api.base_url}): ${err instanceof Error ? err.message : String(err)}`);
-    return;
-  }
-  if (!upstream.ok) {
-    const text = await upstream.text();
-    debugLog(`upstream ${upstream.status}: ${text.slice(0, 500)}`);
-    if (upstream.status === 413) {
-      // Claude Code renders any 413 as its own "max 32MB / images" message and
-      // drops ours. A provider 413 is a token quota (Groq free tier: 8000 TPM vs
-      // ~24k for a full Claude Code prompt): retrying never helps, so answer 400.
-      sendError(res, 400, `${upstreamErrorMessage(text)}
-${QUOTA_HINT}`);
-      return;
+  const [primary] = options.routes;
+  const tried = candidates(options.routes, session.cooldownUntil, Date.now(), estimateTokens(body));
+  let failure: Failure | null = null;
+  let failedRoute: GatewayRoute | null = null;
+  for (const route of tried) {
+    // The primary serves whatever model claude asked for; a fallback serves its own.
+    const model = route === primary ? body.model : route.model;
+    const { request, dropped } = translateRequest(body, upstreamModel(model, route.api.model_prefix));
+    if (dropped.length > 0) debugLog(`dropped fields: ${dropped.join(', ')}`);
+    let upstream: Response;
+    try {
+      upstream = await fetch(`${route.api.base_url}/chat/completions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${route.apiKey}` },
+        body: JSON.stringify(request),
+        signal: clientGone,
+      });
+    } catch (err) {
+      if (clientGone.aborted) return; // client cancelled; nothing to answer
+      const reason = err instanceof Error ? err.message : String(err);
+      debugLog(`${route.providerId} unreachable: ${reason}`);
+      session.cooldownUntil.set(routeKey(route), Date.now() + cooldownMs(NETWORK_ERROR, null, Date.now()));
+      failure = { status: NETWORK_ERROR, message: t.gateway.providerUnreachable(route.api.base_url, reason) };
+      failedRoute ??= route;
+      continue;
     }
-    sendError(res, upstream.status, upstreamErrorMessage(text));
+    if (!upstream.ok) {
+      const text = await upstream.text();
+      debugLog(`${route.providerId} upstream ${upstream.status}: ${text.slice(0, 500)}`);
+      failure = { status: upstream.status, message: upstreamErrorMessage(text) };
+      if (route === primary && (upstream.status === 429 || upstream.status === 413)) session.quotaHits += 1;
+      if (!shouldFallback(upstream.status)) break; // a bad request fails everywhere
+      const pause = cooldownMs(upstream.status, upstream.headers.get('retry-after'), Date.now());
+      if (pause > 0) session.cooldownUntil.set(routeKey(route), Date.now() + pause);
+      failedRoute ??= route;
+      continue;
+    }
+    if (failedRoute && failure) {
+      session.fallbacks.push({ from: failedRoute.providerName, to: route.providerName, status: failure.status });
+      debugLog(`fallback ${failedRoute.providerId} -> ${route.providerId} (${failure.status})`);
+    }
+    await serveResponse(upstream, request.stream === true, body.model, res, clientGone);
     return;
   }
-  if (request.stream !== true) {
+  if (failure) sendFailure(res, failure);
+}
+
+/** Relay a successful upstream answer to claude, translated to Anthropic's shape. */
+async function serveResponse(
+  upstream: Response,
+  stream: boolean,
+  requestedModel: string,
+  res: ServerResponse,
+  clientGone: AbortSignal,
+): Promise<void> {
+  if (!stream) {
     const json = (await upstream.json()) as OpenAIChatResponse;
     res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify(translateResponse(json, body.model)));
+    res.end(JSON.stringify(translateResponse(json, requestedModel)));
     return;
   }
   res.writeHead(200, {
@@ -160,7 +215,7 @@ ${QUOTA_HINT}`);
     'cache-control': 'no-cache',
     connection: 'keep-alive',
   });
-  const translator = createStreamTranslator(body.model);
+  const translator = createStreamTranslator(requestedModel);
   const parser = createSseParser();
   const reader = upstream.body?.getReader();
   if (!reader) {
@@ -190,6 +245,7 @@ ${QUOTA_HINT}`);
 
 export function startGateway(options: GatewayOptions): Promise<RunningGateway> {
   const token = `nexus-session-${randomUUID()}`;
+  const session: SessionState = { cooldownUntil: new Map(), fallbacks: [], quotaHits: 0 };
   const server: Server = createServer((req, res) => {
     void (async () => {
       debugLog(`${req.method} ${req.url}`);
@@ -218,7 +274,7 @@ export function startGateway(options: GatewayOptions): Promise<RunningGateway> {
       if (url === '/v1/messages') {
         const abort = new AbortController();
         res.on('close', () => abort.abort());
-        await handleMessages(body, options, res, abort.signal);
+        await handleMessages(body, options, session, res, abort.signal);
         return;
       }
       sendError(res, 404, `No such endpoint: POST ${url}`);
@@ -240,6 +296,8 @@ export function startGateway(options: GatewayOptions): Promise<RunningGateway> {
         port: address.port,
         baseUrl: `http://${LOOPBACK}:${address.port}`,
         token,
+        fallbacks: () => session.fallbacks,
+        quotaHits: () => session.quotaHits,
         close: () =>
           new Promise<void>((done) => {
             // closeAllConnections: an open SSE stream would otherwise hold

@@ -1,5 +1,6 @@
 import { KEY_VARS, readKey } from './keys.js';
 import { loadProvider } from './providers.js';
+import { t } from '../i18n/index.js';
 
 interface OpenRouterCredits {
   data?: { total_credits?: number; total_usage?: number };
@@ -8,14 +9,14 @@ interface OpenRouterCredits {
 /** Human-readable OpenRouter balance, or a reason string when unavailable. */
 export async function openRouterCredits(): Promise<string> {
   const key = readKey('OPENROUTER_API_KEY');
-  if (!key) return 'cle absente';
+  if (!key) return t.credits.keyMissing;
   let api: string | undefined;
   try {
     api = loadProvider('openrouter').credits_api;
   } catch {
-    return 'provider introuvable';
+    return t.credits.providerNotFound;
   }
-  if (!api) return 'pas de credits_api';
+  if (!api) return t.credits.noCreditsApi;
   try {
     const res = await fetch(api, {
       headers: { Authorization: `Bearer ${key}` },
@@ -25,9 +26,9 @@ export async function openRouterCredits(): Promise<string> {
     const body = (await res.json()) as OpenRouterCredits;
     const total = body.data?.total_credits ?? 0;
     const used = body.data?.total_usage ?? 0;
-    return `${(total - used).toFixed(2)} restants (utilise ${used.toFixed(2)} / ${total.toFixed(2)})`;
+    return t.credits.remaining((total - used).toFixed(2), used.toFixed(2), total.toFixed(2));
   } catch {
-    return 'injoignable';
+    return t.credits.unreachable;
   }
 }
 

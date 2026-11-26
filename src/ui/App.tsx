@@ -9,6 +9,7 @@ import { Header } from './Header.js';
 import { KeyPrompt } from './KeyPrompt.js';
 import { ModelPicker } from './ModelPicker.js';
 import { ProviderList } from './ProviderList.js';
+import { t } from '../i18n/index.js';
 
 export interface Choice {
   provider: Provider;
@@ -25,7 +26,8 @@ export interface Choice {
 export type Intent =
   | { kind: 'launch'; choice: Choice }
   | { kind: 'install'; tool: 'claude'; choice: Choice }
-  | { kind: 'pull'; choice: Choice };
+  | { kind: 'pull'; choice: Choice }
+  | { kind: 'report' };
 
 interface Props {
   providers: Provider[];
@@ -41,7 +43,7 @@ type Stage =
   | { kind: 'providers' }
   | { kind: 'models'; provider: Provider }
   | { kind: 'key'; choice: Choice; varName: string }
-  | { kind: 'confirm'; title: string; message: string; command?: string; intent: Intent };
+  | { kind: 'confirm'; title: string; message: string; command?: string; intent: Exclude<Intent, { kind: 'report' }> };
 
 export function App({ providers, initialProvider, initialChoice, onIntent, onQuit }: Props) {
   const [stage, setStage] = useState<Stage>(
@@ -57,8 +59,8 @@ export function App({ providers, initialProvider, initialChoice, onIntent, onQui
     if (!claudeExists()) {
       setStage({
         kind: 'confirm',
-        title: 'Claude Code CLI absent',
-        message: 'Nexus lance Claude Code, il doit etre installe. Installer maintenant via npm ?',
+        title: t.dialogs.claudeMissingTitle,
+        message: t.dialogs.claudeMissingMessage,
         command: 'npm i -g @anthropic-ai/claude-code',
         intent: { kind: 'install', tool: 'claude', choice },
       });
@@ -72,8 +74,8 @@ export function App({ providers, initialProvider, initialChoice, onIntent, onQui
     if (choice.provider.type === 'ollama' && ollamaModelMissing(choice.model)) {
       setStage({
         kind: 'confirm',
-        title: 'Modele non telecharge',
-        message: `'${choice.model}' n'est pas sur ta machine. Le telecharger maintenant ? Peut faire plusieurs Go.`,
+        title: t.dialogs.modelMissingTitle,
+        message: t.dialogs.modelMissingMessage(choice.model),
         command: `ollama pull ${choice.model}`,
         intent: { kind: 'pull', choice },
       });
@@ -92,7 +94,12 @@ export function App({ providers, initialProvider, initialChoice, onIntent, onQui
     <Box flexDirection="column">
       <Header />
       {stage.kind === 'providers' ? (
-        <ProviderList providers={providers} onSelect={(p) => setStage({ kind: 'models', provider: p })} onQuit={onQuit} />
+        <ProviderList
+          providers={providers}
+          onSelect={(p) => setStage({ kind: 'models', provider: p })}
+          onReport={() => onIntent({ kind: 'report' })}
+          onQuit={onQuit}
+        />
       ) : stage.kind === 'models' ? (
         <ModelPicker
           provider={stage.provider}

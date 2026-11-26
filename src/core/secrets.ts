@@ -12,9 +12,10 @@
 //   - Unix: plaintext file with 0600 perms inside a 0700 directory.
 
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, parse, resolve } from 'node:path';
+import { t } from '../i18n/index.js';
 
 /** Nexus-managed secret names that previously lived as global env vars. */
 const LEGACY_ENV_NAMES = [
@@ -154,6 +155,28 @@ function noteStoreError(path: string, err: unknown): void {
   }
 }
 
+export interface SecretStoreInfo {
+  exists: boolean;
+  enc: StoreFile['enc'] | 'unreadable' | null;
+  /** `secrets.json.corrupt-*` files left by a store that failed to decode. */
+  corruptBackups: number;
+}
+
+/** Store health for diagnostics (`nexus report`) — never returns secret values. */
+export function secretStoreInfo(): SecretStoreInfo {
+  const path = storePath();
+  const corruptBackups = existsSync(nexusDataDir())
+    ? readdirSync(nexusDataDir()).filter((f) => f.startsWith('secrets.json.corrupt-')).length
+    : 0;
+  if (!existsSync(path)) return { exists: false, enc: null, corruptBackups };
+  try {
+    const file = JSON.parse(readFileSync(path, 'utf8')) as StoreFile;
+    return { exists: true, enc: file.enc, corruptBackups };
+  } catch {
+    return { exists: true, enc: 'unreadable', corruptBackups };
+  }
+}
+
 function readStore(): Secrets {
   const path = storePath();
   if (!existsSync(path)) {
@@ -261,7 +284,7 @@ export function wipeSecretStore(): void {
     resolved === resolve(homedir()) ||
     resolved === resolve(process.cwd())
   ) {
-    console.error(`Refus de supprimer ${dir} : repertoire trop large.`);
+    console.error(t.secrets.refuseWipe(dir));
     return;
   }
   try {

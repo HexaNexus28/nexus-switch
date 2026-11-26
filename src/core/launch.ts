@@ -3,8 +3,13 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { Provider } from '../types/provider.types.js';
 import { startGateway, type RunningGateway } from '../gateway/server.js';
+import type { FallbackEvent } from '../types/gateway.types.js';
+import { buildRoutes } from './chain.js';
+import { readConfig } from './config.js';
 import { applyContextWindow, applyModelAliases, applyProviderEnv, resetProviderEnv } from './env.js';
 import { keyVarFor, readKey } from './keys.js';
+import { loadAllProviders } from './providers.js';
+import { t } from '../i18n/index.js';
 
 /** A resolved way to start claude that works on POSIX and through npm's .cmd shims. */
 export type ClaudeCommand =
@@ -119,6 +124,13 @@ function applyGatewayEnv(gateway: RunningGateway, model: string): void {
   // Claude Code's background/alias requests must land on the model the gateway
   // actually serves, not on an Anthropic haiku id the upstream has never heard of.
   applyModelAliases(model);
+  // Auto mode now expects Anthropic's servers to run its permission checks
+  // (`safeguards` in, `safeguard_results` out). Groq, Gemini & co. never can, so
+  // without this Claude Code holds the first checked action behind a billing
+  // notice. 0 = use Claude Code's own classifier requests, which reach this
+  // gateway like any other request. Documented as temporary: re-check on upgrades.
+  // https://code.claude.com/docs/en/auto-mode-classifier-billing
+  process.env.CLAUDE_CODE_AUTO_MODE_SERVER = '0';
   if (!/(?:^|\/)claude-/.test(model)) {
     process.env.MAX_THINKING_TOKENS = '0';
     process.env.CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING = '1';
@@ -131,21 +143,29 @@ function applyGatewayEnv(gateway: RunningGateway, model: string): void {
  * on any failure (printed as a clean error) — the caller bails out so launch()
  * is never called with a half-wired env.
  */
-async function startGatewayForProvider(provider: Provider): Promise<RunningGateway | null> {
+function keyFor(providerId: string): string | undefined {
+  const varName = keyVarFor(providerId);
+  return varName ? readKey(varName) : undefined;
+}
+
+async function startGatewayForProvider(provider: Provider, model: string): Promise<RunningGateway | null> {
   if (!provider.api) {
     console.error(`Provider ${provider.id}: type 'gateway' requires api.base_url + api.model_prefix.`);
     return null;
   }
-  const varName = provider.id ? keyVarFor(provider.id) : undefined;
-  const apiKey = varName ? readKey(varName) : undefined;
-  if (!apiKey) {
-    console.error(`Cle API absente pour ${provider.id}. Configure : nexus key set ${provider.id} <cle>`);
+  if (!provider.id || !keyFor(provider.id)) {
+    console.error(t.launch.keyMissing(provider.id ?? '?'));
     return null;
   }
+  const setting = process.env.NEXUS_NO_FALLBACK === '1' ? undefined : readConfig().fallback;
+  const routes = !setting
+    ? buildRoutes(provider, model, [], keyFor)
+    : buildRoutes(provider, model, loadAllProviders(), keyFor, setting.mode === 'manual' ? setting.providers : undefined);
+  if (routes.length > 1) console.error(t.fallback.chain(routes.map((r) => r.providerName)));
   try {
-    return await startGateway({ api: provider.api, apiKey });
+    return await startGateway({ routes });
   } catch (err) {
-    console.error(`Gateway injoignable (${provider.api.base_url}): ${err instanceof Error ? err.message : String(err)}`);
+    console.error(t.launch.gatewayFailed(provider.api.base_url, err instanceof Error ? err.message : String(err)));
     return null;
   }
 }
@@ -156,21 +176,13 @@ function warnOllamaTier(provider: Provider, model: string): void {
   // custom cloud models discovered by refreshOllama before catalog update).
   if (modelDef?.tier === 'subscription') {
     // Probed 2026-07: these 403 on a free account before any token is served.
-    console.error(
-      "Modele reserve aux abonnes Ollama Pro/Max — avec un compte gratuit, Claude Code recevra une erreur 403 'requires a subscription'.\n" +
-      "Upgrade : ollama.com/upgrade · gratuits avec quota : minimax-m3:cloud, qwen3-coder:480b-cloud, gpt-oss:120b-cloud"
-    );
+    console.error(t.launch.ollamaSubscription);
   } else if (modelDef?.signin_required ?? model.endsWith(':cloud')) {
     // Cloud models route through Ollama's hosted backend — needs a free account + CLI signin.
-    console.error(
-      "Modele Ollama cloud — compte requis (gratuit, sans CB) : ollama.com\n" +
-      "Lance `ollama signin` si ce n'est pas encore fait.\n" +
-      "Quota gratuit : reset toutes les 5h + hebdomadaire, 1 modele concurrent.\n" +
-      "Pour lever les limites : Pro 20$/mois · Max 100$/mois -> ollama.com/pricing"
-    );
+    console.error(t.launch.ollamaCloud);
   } else {
     // Local models load fully into RAM/VRAM; large context KV cache can be many GB -> OOM.
-    console.error("Modele Ollama local : grand contexte = beaucoup de RAM/VRAM. Si 'out of memory' -> bascule sur un modele :cloud, ou baisse OLLAMA_CONTEXT_LENGTH (ex. 16384) et relance Ollama.");
+    console.error(t.launch.ollamaLocal);
   }
 }
 
@@ -178,10 +190,10 @@ function runOllama(model: string, rest: string[]): void {
   const args = ['launch', 'claude', '--model', model, ...(rest.length ? ['--', ...rest] : [])];
   const result = spawnSync('ollama', args, { stdio: 'inherit' });
   if (result.error) {
-    console.error(`Echec ollama : ${result.error.message}`);
+    console.error(t.launch.ollamaFailed(result.error.message));
     process.exitCode = 1;
   } else if (result.status !== 0) {
-    console.error(`ollama a quitte (code ${result.status}). Le modele '${model}' existe-t-il ? -> ollama list`);
+    console.error(t.launch.ollamaExited(result.status, model));
     process.exitCode = result.status ?? 1;
   }
 }
@@ -200,7 +212,7 @@ function runClaude(rest: string[]): Promise<void> {
   return new Promise((resolve) => {
     const command = resolveClaude();
     if (!command) {
-      console.error('Echec claude : introuvable sur le PATH.');
+      console.error(t.launch.claudeNotFound);
       process.exitCode = 1;
       resolve();
       return;
@@ -214,7 +226,7 @@ function runClaude(rest: string[]): Promise<void> {
             { stdio: 'inherit', windowsVerbatimArguments: true },
           );
     child.on('error', (err) => {
-      console.error(`Echec claude : ${err.message}`);
+      console.error(t.launch.claudeFailed(err.message));
       process.exitCode = 1;
       resolve();
     });
@@ -227,17 +239,25 @@ function runClaude(rest: string[]): Promise<void> {
   });
 }
 
+/** One line per switch pair after the session: "Groq quota reached 3x -> served by Cerebras". */
+function printFallbackSummary(events: readonly FallbackEvent[]): void {
+  const counts = new Map<string, { from: string; to: string; n: number }>();
+  for (const e of events) {
+    const key = `${e.from}\u0000${e.to}`;
+    const entry = counts.get(key) ?? { from: e.from, to: e.to, n: 0 };
+    entry.n += 1;
+    counts.set(key, entry);
+  }
+  for (const { from, to, n } of counts.values()) console.error(t.fallback.summary(from, to, n));
+}
+
 /**
  * Args actually handed to claude: --bare prepended when the provider's quota
  * cannot carry the full prompt, unless the user opted out or passed it already.
  */
 export function claudeArgs(provider: Provider, rest: string[]): string[] {
   if (!provider.bare || rest.includes('--bare') || process.env.NEXUS_FULL_PROMPT === '1') return rest;
-  console.error(
-    `${provider.name} : mode reduit (--bare, sans CLAUDE.md/MCP/hooks), le quota gratuit ne porte pas le prompt complet.
-` +
-      'Palier payant ? NEXUS_FULL_PROMPT=1 pour le desactiver.',
-  );
+  console.error(t.launch.bare(provider.name));
   return ['--bare', ...rest];
 }
 
@@ -266,7 +286,7 @@ export async function launch(provider: Provider, model: string, rest: string[]):
     return;
   }
   if (provider.type === 'gateway') {
-    const gateway = await startGatewayForProvider(provider);
+    const gateway = await startGatewayForProvider(provider, model);
     if (!gateway) {
       process.exitCode = 1;
       return;
@@ -278,6 +298,10 @@ export async function launch(provider: Provider, model: string, rest: string[]):
     // session, and closing it is what lets this process end. Close regardless of
     // claude's exit code — the process is going away either way.
     await gateway.close();
+    printFallbackSummary(gateway.fallbacks());
+    if (gateway.quotaHits() > 0 && !readConfig().fallback) {
+      console.error(t.fallback.suggest(provider.name, gateway.quotaHits()));
+    }
     return;
   }
   applyProviderEnv(provider, model);

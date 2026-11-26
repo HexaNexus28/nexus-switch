@@ -74,8 +74,17 @@ src/
     credits.ts          OpenRouter balance + key presence
     doctor.ts           diagnostics + key validation
     update.ts           daily npm check (cached), "newer version" notice; never self-installs
+    package-info.ts     version + issues URL from the shipped package.json
+    chain.ts            fallback routes: same model class, free/quota only, manual chain or fallback_order
+    config.ts           ~/.nexus-switch/config.json (preferences, e.g. the manual fallback chain)
+    report.ts           `nexus report`: redacted diagnostic -> pre-filled GitHub issue (nothing sent by nexus)
+  i18n/
+    en.ts               every user-facing string (source of truth, defines the Messages type)
+    fr.ts               French; must match en.ts key for key (compile-time check)
+    index.ts            locale: NEXUS_LANG > LC_ALL/LC_MESSAGES/LANG (not on Windows) > Intl; default en
   gateway/
-    server.ts           loopback HTTP server, auth, SSE/JSON responses
+    server.ts           loopback HTTP server, auth, SSE/JSON responses; tries routes in order
+    router.ts           pure fallback decisions: which statuses switch, Retry-After cooldowns, route order
     translate.ts        Anthropic <-> OpenAI request/response translation
     stream.ts           OpenAI SSE -> Anthropic SSE, usage extraction
   ui/
@@ -88,6 +97,8 @@ src/
   types/
     provider.types.ts
     gateway.types.ts
+    i18n.types.ts
+    report.types.ts
 bin/nexus.js            entrypoint (boots Ink for the bare `nexus` command)
 providers/*.json        provider + model catalog (single source of truth)
 ```

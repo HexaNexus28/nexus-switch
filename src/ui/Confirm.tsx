@@ -1,4 +1,5 @@
 import { Box, Text, useInput } from 'ink';
+import { t } from '../i18n/index.js';
 
 interface Props {
   title: string;
@@ -8,7 +9,7 @@ interface Props {
   onAnswer: (yes: boolean) => void;
 }
 
-/** In-Ink [o/N] dialog — stdin never leaves Ink, unlike a readline prompt. */
+/** In-Ink [y/N] dialog (o accepted too, for French users) — stdin never leaves Ink, unlike a readline prompt. */
 export function Confirm({ title, message, command, onAnswer }: Props) {
   useInput((input, key) => {
     if (/^[oy]$/i.test(input)) onAnswer(true);
@@ -23,7 +24,7 @@ export function Confirm({ title, message, command, onAnswer }: Props) {
       <Text>{message}</Text>
       {command ? <Text dimColor>{`  $ ${command}`}</Text> : null}
       <Box marginTop={1}>
-        <Text dimColor>{'o = oui · n / Entree / Esc = non'}</Text>
+        <Text dimColor>{t.confirm.hint}</Text>
       </Box>
     </Box>
   );

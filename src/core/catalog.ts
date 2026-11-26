@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import type { Provider, ProviderModel } from '../types/provider.types.js';
 import { providersPath } from './providers.js';
+import { t } from '../i18n/index.js';
 
 /** Write a catalog file without ever leaving a half-written JSON behind. */
 function writeFileAtomic(path: string, content: string): void {
@@ -36,7 +37,7 @@ export async function refreshOpenRouter(
   if (!res.ok) throw new Error(`OpenRouter API responded ${res.status}`);
   const body = (await res.json()) as { data?: OpenRouterModel[] };
   if (!Array.isArray(body.data) || body.data.length === 0) {
-    throw new Error('OpenRouter: liste de modeles vide, catalogue inchange.');
+    throw new Error(t.catalog.openRouterEmpty);
   }
   const upstream = new Set(body.data.map((m) => m.id));
 
@@ -47,7 +48,7 @@ export async function refreshOpenRouter(
   // Never write an empty catalog: loadProvider rejects it and the provider
   // would disappear from the TUI until the user restores the file by hand.
   if (kept.length === 0) {
-    throw new Error('OpenRouter: aucun modele local ne survit, catalogue inchange.');
+    throw new Error(t.catalog.openRouterNoneLeft);
   }
   provider.models = kept;
 
@@ -62,7 +63,7 @@ export async function refreshOpenRouter(
  */
 export function refreshOllama(): { models: number } {
   const result = spawnSync('ollama', ['list'], { encoding: 'utf8' });
-  if (result.status !== 0) throw new Error('`ollama list` a echoue (ollama installe ?)');
+  if (result.status !== 0) throw new Error(t.catalog.ollamaListFailed);
 
   const ids = result.stdout
     .split(/\r?\n/)
@@ -72,7 +73,7 @@ export function refreshOllama(): { models: number } {
 
   // No usable model on the machine: never write an empty model_list — that would
   // make loadProvider('ollama') throw "no models" and brick the whole TUI.
-  if (ids.length === 0) throw new Error('aucun modele Ollama lancable (catalogue inchange)');
+  if (ids.length === 0) throw new Error(t.catalog.ollamaNone);
 
   const file = providersPath('ollama');
   const provider = JSON.parse(readFileSync(file, 'utf8')) as Provider;
@@ -90,7 +91,7 @@ export function refreshOllama(): { models: number } {
       tier: cloud ? 'quota' : 'free',
       location: cloud ? 'cloud' : 'local',
       ...(cloud ? { signin_required: 'ollama' } : { ram_gb: null, disk_gb: null }),
-      note: cloud ? 'cloud (quota gratuit, signin requis)' : 'local',
+      note: cloud ? 'cloud (free quota, sign-in required)' : 'local',
     };
   });
 
